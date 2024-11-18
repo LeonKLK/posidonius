@@ -334,8 +334,9 @@ def _calculate_keplerian_orbital_elements(gm, position, velocity):
         if np.any(zero):
             true_longitude[zero] = np.arctan2(y[zero]*ci[zero], x[zero])
     # SBC: Added to Alex/Leon's updated code
+    # Debug: Added the [~non_zero] for true_longitude
     if np.any(~non_zero):
-        true_longitude = np.arctan2(y[~non_zero]*ci[~non_zero], x[~non_zero])
+        true_longitude[~non_zero] = np.arctan2(y[~non_zero]*ci[~non_zero], x[~non_zero])
     # SBC
 
     negative_ci = ci < 0.
