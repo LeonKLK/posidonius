@@ -2,11 +2,23 @@ import numpy as np
 import os
 
 MAX_PARTICLES = 10
+
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
-if not os.path.exists(BASE_DIR+"/input/"):
+
+# Ensure BASE_DIR ends with a slash for consistent path building
+if not BASE_DIR.endswith("/"):
+    BASE_DIR += "/"
+
+if not os.path.exists(BASE_DIR + "input/"):
     BASE_DIR = os.path.dirname(os.path.realpath(__file__)) + "/../"
-    if not os.path.exists(BASE_DIR+"/input/"):
+
+    # Ensure the updated BASE_DIR ends with a slash
+    if not BASE_DIR.endswith("/"):
+        BASE_DIR += "/"
+
+    if not os.path.exists(BASE_DIR + "input/"):
         raise Exception("Input directory with stellar models not found!")
+
 
 PI = np.pi
 TWO_PI = PI*2.
