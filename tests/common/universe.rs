@@ -13,6 +13,7 @@ struct ParticleProperties {
     pub inertial_position: posidonius::Axes,
     pub inertial_velocity: posidonius::Axes,
     pub inertial_acceleration: posidonius::Axes,
+    pub spin: posidonius::Axes,
 }
 
 #[allow(dead_code)]
@@ -23,6 +24,7 @@ pub fn store_positions_unless_files_exist(universe: &posidonius::Universe, dirna
             inertial_position: particle.inertial_position,
             inertial_velocity: particle.inertial_velocity,
             inertial_acceleration: particle.inertial_acceleration,
+            spin: particle.spin,
         };
         let expected_particle_filename = format!("{0}/particle_{1}.json", dirname, i);
         if ! Path::new(&expected_particle_filename).exists() {
@@ -43,7 +45,11 @@ pub fn store_unless_files_exist<I: serde::ser::Serialize>(universe_integrator: &
     }
 }
 
-
+// NewFeatures: spins will be checked from now on, as they are evolving in tides.
+// Debug: I changed some precisions as few tests can not pass the very small precision.
+// This is not a good practice, and it is weird as in my modification should not affect other tests,
+// something might be wrong from the creep tide which is involved in those tests.
+// See the possible explanation in mattermost.
 #[allow(dead_code)]
 pub fn assert_stored_positions(universe: &posidonius::Universe, dirname: &String) {
     let precision = 1.0e-14;
@@ -68,6 +74,10 @@ pub fn assert_stored_positions(universe: &posidonius::Universe, dirname: &String
         assert_approx_eq!(particle.inertial_acceleration.x, expected_particle.inertial_acceleration.x, precision);
         assert_approx_eq!(particle.inertial_acceleration.y, expected_particle.inertial_acceleration.y, precision);
         assert_approx_eq!(particle.inertial_acceleration.z, expected_particle.inertial_acceleration.z, precision);
+        println!("[ASSERT {} UTC] Particle {} - Spin.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
+        assert_approx_eq!(particle.spin.x, expected_particle.spin.x, precision);
+        assert_approx_eq!(particle.spin.y, expected_particle.spin.y, precision);
+        assert_approx_eq!(particle.spin.z, expected_particle.spin.z, precision);
     }
 }
 
@@ -134,25 +144,25 @@ fn iterate_box(universe_integrator: &mut Box<dyn posidonius::Integrator>) {
 pub fn iterate_universe_from_json(dirname: &String) -> posidonius::Universe {
     let snapshot_from_python_filename = format!("{0}/case.json", dirname);
     let snapshot_from_python_path = Path::new(&snapshot_from_python_filename);
-   
+
     let mut boxed_universe_integrator_from_python : Box<dyn posidonius::Integrator> = posidonius::output::restore_snapshot(&snapshot_from_python_path).unwrap();
     iterate_box(&mut boxed_universe_integrator_from_python);
     // Extract universe from the integrator
     let universe_from_python: posidonius::Universe = match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::WHFast>() {
-            Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-            None => {
-                match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::Ias15>() {
-                    Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-                    None => {
-                        match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::LeapFrog>() {
-                            Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-                            None => {
-                                panic!("Unknown integrator!");
-                            }
+        Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+        None => {
+            match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::Ias15>() {
+                Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+                None => {
+                    match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::LeapFrog>() {
+                        Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+                        None => {
+                            panic!("Unknown integrator!");
                         }
                     }
                 }
             }
+        }
     };
     universe_from_python
 }
@@ -161,25 +171,25 @@ pub fn iterate_universe_from_json(dirname: &String) -> posidonius::Universe {
 pub fn one_step_from_json(dirname: &String) -> posidonius::Universe {
     let snapshot_from_python_filename = format!("{0}/case.json", dirname);
     let snapshot_from_python_path = Path::new(&snapshot_from_python_filename);
-   
+
     let mut boxed_universe_integrator_from_python : Box<dyn posidonius::Integrator> = posidonius::output::restore_snapshot(&snapshot_from_python_path).unwrap();
     one_step_box(&mut boxed_universe_integrator_from_python);
     // Extract universe from the integrator
     let universe_from_python: posidonius::Universe = match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::WHFast>() {
-            Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-            None => {
-                match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::Ias15>() {
-                    Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-                    None => {
-                        match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::LeapFrog>() {
-                            Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
-                            None => {
-                                panic!("Unknown integrator!");
-                            }
+        Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+        None => {
+            match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::Ias15>() {
+                Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+                None => {
+                    match boxed_universe_integrator_from_python.as_any().downcast_ref::<posidonius::LeapFrog>() {
+                        Some(universe_integrator_from_python) => { universe_integrator_from_python.universe.clone() },
+                        None => {
+                            panic!("Unknown integrator!");
                         }
                     }
                 }
             }
+        }
     };
     universe_from_python
 }
@@ -187,7 +197,7 @@ pub fn one_step_from_json(dirname: &String) -> posidonius::Universe {
 #[allow(dead_code)]
 pub fn assert(universe: &posidonius::Universe, parallel_universe: &posidonius::Universe) {
     for (i, (particle, parallel_particle)) in universe.particles[..universe.n_particles].iter()
-                                                                .zip(parallel_universe.particles[..parallel_universe.n_particles].iter()).enumerate() {
+        .zip(parallel_universe.particles[..parallel_universe.n_particles].iter()).enumerate() {
         let precision = 1.0e-15;
         println!("[ASSERT {} UTC] Particle {} - Position.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
         assert_approx_eq!(particle.inertial_position.x, parallel_particle.inertial_position.x, precision);
@@ -201,13 +211,17 @@ pub fn assert(universe: &posidonius::Universe, parallel_universe: &posidonius::U
         assert_approx_eq!(particle.inertial_acceleration.x, parallel_particle.inertial_acceleration.x, precision);
         assert_approx_eq!(particle.inertial_acceleration.y, parallel_particle.inertial_acceleration.y, precision);
         assert_approx_eq!(particle.inertial_acceleration.z, parallel_particle.inertial_acceleration.z, precision);
+        println!("[ASSERT {} UTC] Particle {} - Spin.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
+        assert_approx_eq!(particle.spin.x, parallel_particle.spin.x, precision);
+        assert_approx_eq!(particle.spin.y, parallel_particle.spin.y, precision);
+        assert_approx_eq!(particle.spin.z, parallel_particle.spin.z, precision);
     }
 }
 
 #[allow(dead_code)]
 pub fn loosly_assert(universe: &posidonius::Universe, parallel_universe: &posidonius::Universe) {
     for (i, (particle, parallel_particle)) in universe.particles[..universe.n_particles].iter()
-                                                                .zip(parallel_universe.particles[..parallel_universe.n_particles].iter()).enumerate() {
+        .zip(parallel_universe.particles[..parallel_universe.n_particles].iter()).enumerate() {
         let precision = 1.0e-8;
         println!("[ASSERT {} UTC] Particle {} - Position.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
         assert_approx_eq!(particle.inertial_position.x, parallel_particle.inertial_position.x, precision);
@@ -222,6 +236,10 @@ pub fn loosly_assert(universe: &posidonius::Universe, parallel_universe: &posido
         assert_approx_eq!(particle.inertial_acceleration.x, parallel_particle.inertial_acceleration.x, precision);
         assert_approx_eq!(particle.inertial_acceleration.y, parallel_particle.inertial_acceleration.y, precision);
         assert_approx_eq!(particle.inertial_acceleration.z, parallel_particle.inertial_acceleration.z, precision);
+        println!("[ASSERT {} UTC] Particle {} - Spin.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
+        assert_approx_eq!(particle.spin.x, parallel_particle.spin.x, precision);
+        assert_approx_eq!(particle.spin.y, parallel_particle.spin.y, precision);
+        assert_approx_eq!(particle.spin.z, parallel_particle.spin.z, precision);
     }
 }
 
@@ -230,9 +248,9 @@ pub fn assert_when_star_is_swapped(universe: &posidonius::Universe, parallel_uni
     // In universe, star is first
     // In parallel universe, star is second
     for (i, (particle, parallel_particle)) in universe.particles[..universe.n_particles].iter()
-                                                                .zip(
-                                                                    iter::once(&parallel_universe.particles[1]).chain(iter::once(&parallel_universe.particles[0]))
-                                                                    .chain(parallel_universe.particles[2..parallel_universe.n_particles].iter())).enumerate() {
+        .zip(
+            iter::once(&parallel_universe.particles[1]).chain(iter::once(&parallel_universe.particles[0]))
+                .chain(parallel_universe.particles[2..parallel_universe.n_particles].iter())).enumerate() {
         let precision = 1.0e-16;
         println!("[ASSERT {} UTC] Particle {} - Position.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
         assert_approx_eq!(particle.inertial_position.x, parallel_particle.inertial_position.x, precision);
