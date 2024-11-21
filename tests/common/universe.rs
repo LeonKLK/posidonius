@@ -211,10 +211,13 @@ pub fn assert(universe: &posidonius::Universe, parallel_universe: &posidonius::U
         assert_approx_eq!(particle.inertial_acceleration.x, parallel_particle.inertial_acceleration.x, precision);
         assert_approx_eq!(particle.inertial_acceleration.y, parallel_particle.inertial_acceleration.y, precision);
         assert_approx_eq!(particle.inertial_acceleration.z, parallel_particle.inertial_acceleration.z, precision);
+        // Lower the precision requirement for the spin check, as we know the .json generated from
+        // python and rust could be different, especially the initial spin for the star.
+        let precision_spin = 4.0e-15;
         println!("[ASSERT {} UTC] Particle {} - Spin.", OffsetDateTime::now_utc().format(&format_description::parse("[year].[month].[day] [hour]:[minute]:[second]").unwrap()).unwrap(), i);
-        assert_approx_eq!(particle.spin.x, parallel_particle.spin.x, precision);
-        assert_approx_eq!(particle.spin.y, parallel_particle.spin.y, precision);
-        assert_approx_eq!(particle.spin.z, parallel_particle.spin.z, precision);
+        assert_approx_eq!(particle.spin.x, parallel_particle.spin.x, precision_spin);
+        assert_approx_eq!(particle.spin.y, parallel_particle.spin.y, precision_spin);
+        assert_approx_eq!(particle.spin.z, parallel_particle.spin.z, precision_spin);
     }
 }
 
