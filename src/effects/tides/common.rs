@@ -83,6 +83,7 @@ pub enum TidalModel {
     ConstantTimeLag(constant_time_lag::ConstantTimeLagParameters),
     CreepCoplanar(creep_coplanar::CreepCoplanarParameters),
     Kaula(kaula::KaulaParameters),
+    DisabledModel,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
@@ -230,6 +231,7 @@ pub fn calculate_dangular_momentum_dt_due_to_tides(tidal_host_particle: &mut Par
                 TidalModel::ConstantTimeLag(_) => constant_time_lag::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
                 TidalModel::CreepCoplanar(_) => creep_coplanar::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
                 TidalModel::Kaula(_) => kaula::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
+                TidalModel::DisabledModel => {continue;},
             };
             // Integration of the spin (total torque tides):
             particle.tides.parameters.output.dangular_momentum_dt.x = factor * torque_due_to_tides.x;
@@ -246,6 +248,7 @@ pub fn calculate_dangular_momentum_dt_due_to_tides(tidal_host_particle: &mut Par
                 TidalModel::ConstantTimeLag(_) => constant_time_lag::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
                 TidalModel::CreepCoplanar(_) => creep_coplanar::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
                 TidalModel::Kaula(_) => kaula::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body),
+                TidalModel::DisabledModel => {continue;},
             };
             // Integration of the spin (total torque tides):
             dangular_momentum_dt.x += factor * torque_due_to_tides.x;
@@ -320,6 +323,7 @@ pub fn calculate_tidal_acceleration(tidal_host_particle: &mut Particle, particle
                 TidalModel::ConstantTimeLag(_) => constant_time_lag::calculate_tidal_force(tidal_host_particle, particle),
                 TidalModel::CreepCoplanar(_) => creep_coplanar::calculate_tidal_force(tidal_host_particle, particle),
                 TidalModel::Kaula(_) => kaula::calculate_tidal_force(tidal_host_particle, particle, central_body),
+                TidalModel::DisabledModel => {continue;},
             };
             let factor1 = 1. / particle.mass;
             sum_tidal_force.x += tidal_force.x;

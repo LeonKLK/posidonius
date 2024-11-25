@@ -126,3 +126,12 @@ class Kaula(object):
             return self._data
         else:
             return self._data.copy()
+
+class DisabledModel(object):
+    def __init__(self, input_parameters=None):
+        # Minimal placeholder data
+        self._data = "DisabledModel"
+
+    def get(self):
+        # Return the placeholder data
+        return self._data
