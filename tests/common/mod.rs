@@ -62,6 +62,13 @@ pub fn load_kaula_parameters(file_path: &str) -> Result<posidonius::KaulaParamet
     // Get the number of available data points
     let num_datapoints = w_lm.len();
 
+    if num_datapoints > expected_size {
+        panic!(
+            "Data size exceeds expected size: num_datapoints ({}) > expected_size ({})",
+            num_datapoints, expected_size
+        );
+    }
+
     // Extend w_lm, im_k2, and re_k2 to expected_size by repeating the last element if needed
     if num_datapoints < expected_size {
         let last_w_lm = *w_lm.last().unwrap_or(&0.0);
