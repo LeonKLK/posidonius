@@ -61,7 +61,7 @@ if __name__ == "__main__":
     if size_star != expected_size or size_star <= expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
-        planet_kaula_tidal_parameters_love_numbers = {
+        star_kaula_tidal_parameters_love_numbers = {
             "love_number_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
             "imaginary_part_love_number": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
             "real_part_love_number": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
