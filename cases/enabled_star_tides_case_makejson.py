@@ -51,16 +51,26 @@ if __name__ == "__main__":
     ReK2_star   = star_data[0:,2]
     size_star   = np.size(w_lm_star)
 
-    expected_size = 1024
-    if size_star != expected_size:
-        warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
-
     star_kaula_tidal_parameters_love_numbers = {
         "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
         "imaginary_part_love_number": ImK2_star.tolist(),
         "real_part_love_number": ReK2_star.tolist(),
         "num_datapoints": size_star,
     }
+
+    expected_size = 1024
+    if size_star != expected_size or size_star <= expected_size:
+        warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
+
+        planet_kaula_tidal_parameters_love_numbers = {
+            "love_number_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
+            "imaginary_part_love_number": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
+            "real_part_love_number": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
+            "num_datapoints": float(expected_size),
+        }
+
+    else:
+        raise Exception("Data size exceeds expected size.")
 
     star_tides_model = posidonius.effects.tides.Kaula(star_kaula_tidal_parameters_love_numbers)
     # star_tides_model = posidonius.effects.tides.ConstantTimeLag(star_tides_parameters)

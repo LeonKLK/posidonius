@@ -165,16 +165,18 @@ if __name__ == "__main__":
     }
 
     expected_size = 1024
-    if size_planet != expected_size:
+    if size_planet != expected_size or size_planet <= expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
-    # Continue with the rest of the code
-    planet_kaula_tidal_parameters_love_numbers = {
-        "love_number_excitation_frequency": w_lm_planet.tolist() + [w_lm_planet[-1]] * (expected_size - len(w_lm_planet)),
-        "imaginary_part_love_number": ImK2_planet.tolist() + [ImK2_planet[-1]] * (expected_size - len(ImK2_planet)),
-        "real_part_love_number": ReK2_planet.tolist() + [ReK2_planet[-1]] * (expected_size - len(ReK2_planet)),
-        "num_datapoints": float(expected_size),
-    }
+        planet_kaula_tidal_parameters_love_numbers = {
+            "love_number_excitation_frequency": w_lm_planet.tolist() + [w_lm_planet[-1]] * (expected_size - len(w_lm_planet)),
+            "imaginary_part_love_number": ImK2_planet.tolist() + [ImK2_planet[-1]] * (expected_size - len(ImK2_planet)),
+            "real_part_love_number": ReK2_planet.tolist() + [ReK2_planet[-1]] * (expected_size - len(ReK2_planet)),
+            "num_datapoints": float(expected_size),
+        }
+
+    else:
+        raise Exception("Data size exceeds expected size.")
 
     # --- Choose the tidal model to use :
     planet_tides_model = posidonius.effects.tides.Kaula(planet_kaula_tidal_parameters_love_numbers)
