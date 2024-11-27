@@ -96,6 +96,9 @@ pub fn load_kaula_parameters(file_path: &str) -> Result<posidonius::KaulaParamet
         real_part_love_number,
         imaginary_part_love_number,
         num_datapoints: num_datapoints as f64,
+        // below two are placeholder for the moment
+        stellar_tide: -1, // Specified the type of tides
+        spectrum_spin_rate: 0.0, // Specified the initial spin rate of the star (stellar tide specific)
         polynomials: posidonius::Polynomials::new(),
         kaula_tidal_force: posidonius::Axes { x: 0.0, y: 0.0, z: 0.0 },
     })

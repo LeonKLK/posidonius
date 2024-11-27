@@ -1,4 +1,5 @@
 import six
+import sys
 from posidonius.particles.axes import Axes
 
 class Tides(object):
@@ -102,24 +103,41 @@ class CreepCoplanar(object):
 
 class Kaula(object):
     def __init__(self, input_parameters):
+
+        # print("Input parameters:", input_parameters)
+
         self._data = {
             "Kaula": {
                 "love_number_excitation_frequency": [0.] * 1024,
                 "imaginary_part_love_number": [0.] * 1024,
                 "real_part_love_number": [0.] * 1024,
                 "num_datapoints": 0.0,
+                "stellar_tide": int(0),
+                "spectrum_spin_rate": 0.0,
                 "kaula_tidal_force": Axes( 0.0, 0.0, 0.0).get(),
             },
         }
         # Update default values, ignore non-recognised keys
         for key, value in six.iteritems(input_parameters):
             if key in self._data["Kaula"]:
-                if isinstance(value, (tuple, list)):
+                if key == "stellar_tide":
+                    # Ensure the value is converted to an integer
+                    try:
+                        self._data["Kaula"][key] = int(value)
+                    except ValueError:
+                        print(f"Invalid value for stellar_tide: {value}. Expected an integer.")
+                        raise
+                elif isinstance(value, (tuple, list)):
+                    # Convert lists or tuples to a list of floats
                     self._data["Kaula"][key] = [float(v) for v in value]
                 else:
+                    # Convert single values to float
                     self._data["Kaula"][key] = float(value)
             else:
-                print("Ignored parameter: {}".format(key))
+                print(f"Ignored parameter: {key}")
+
+        # print("Output parameters:", self._data["Kaula"])
+        # sys.exit("Program terminated after printing input parameters.")
 
     def get(self):
         if type(self._data) == str:
