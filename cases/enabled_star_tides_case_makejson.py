@@ -56,6 +56,8 @@ if __name__ == "__main__":
         "imaginary_part_love_number": ImK2_star.tolist(),
         "real_part_love_number": ReK2_star.tolist(),
         "num_datapoints": size_star,
+        "stellar_tide": 1,
+        "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
     }
 
     expected_size = 1024
@@ -67,6 +69,8 @@ if __name__ == "__main__":
             "imaginary_part_love_number": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
             "real_part_love_number": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
             "num_datapoints": float(expected_size),
+            "stellar_tide": 1,
+            "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
         }
 
     else:
