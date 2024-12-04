@@ -33,7 +33,7 @@ if __name__ == "__main__":
     star_velocity = posidonius.Axes(0., 0., 0.)
 
     # Initialization of stellar spin
-    star_rotation_period = 4.2*24 # hours (original 3.3)
+    star_rotation_period = 4.*24 # hours (original 3.3)
     star_angular_frequency = posidonius.constants.TWO_PI/(star_rotation_period/24.) # days^-1
     star_spin = posidonius.Axes(0., 0., star_angular_frequency)
 
