@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
     filename = args.historic_snapshot_filename
     n_particles, data = posidonius.analysis.history.read(filename)
-    star_data, planets_data, planets_keys = posidonius.analysis.history.classify(n_particles, data, discard_first_hundred_years=False)
+    star_data, planets_data, planets_keys = posidonius.analysis.history.classify(n_particles, data)
 
     planet_names = planets_keys
     nb_planets = len(planet_names)
@@ -150,14 +150,14 @@ if __name__ == "__main__":
     plot_dl.grid(True)
 
     for i in range(q+1):
-      sys.stdout.write("Displaying %5.1f %%                          \r" % (75. + float((i+3) / (q+3)) * 25.))
-      sys.stdout.flush()
-      subplot_index += 1
-      plot_phi = fig.add_subplot(nb_lines, nb_rows, subplot_index, sharex=plot_period)
-      plot_phi.plot(t, phi[i], '.')
-      plot_phi.set_xlabel("time [years]")
-      plot_phi.set_ylabel("phi %i" % i)
-      plot_phi.grid(True)
+        sys.stdout.write("Displaying %5.1f %%                          \r" % (75. + float((i+3) / (q+3)) * 25.))
+        sys.stdout.flush()
+        subplot_index += 1
+        plot_phi = fig.add_subplot(nb_lines, nb_rows, subplot_index, sharex=plot_period)
+        plot_phi.plot(t, phi[i], '.')
+        plot_phi.set_xlabel("time [years]")
+        plot_phi.set_ylabel("phi %i" % i)
+        plot_phi.grid(True)
 
     plot_period.xaxis.set_major_formatter(myxfmt)
 
