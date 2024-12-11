@@ -60,7 +60,7 @@ if __name__ == "__main__":
     }
 
     expected_size = 1024
-    if size_star != expected_size or size_star <= expected_size:
+    if size_star < expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
         star_kaula_tidal_parameters_love_numbers = {
@@ -71,7 +71,8 @@ if __name__ == "__main__":
             "stellar_tide": 1,
             "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
         }
-
+    elif size_star == expected_size:
+        print("Data size equals expected size.")
     else:
         raise Exception("Data size exceeds expected size.")
 
@@ -145,8 +146,8 @@ if __name__ == "__main__":
 
     # Radius computed from equation of Zeng 2016
     planet_radius_of_gyration = 5.75e-01 # Earth type planet
-    planet_mass = 5.*Mearth / posidonius.constants.M_SUN # Solar masses (3.0e-6 solar masses = 1 earth mass)
-    planet_radius = 1.5687291659*Rearth / posidonius.constants.AU # Assume same average density with Earth's
+    planet_mass = 5. * posidonius.constants.M_EARTH # Solar masses (3.0e-6 solar masses = 1 earth mass)
+    planet_radius = 1.5687291659 * posidonius.constants.R_EARTH # Assume same average density with Earth's
 
     # first planet
     #////////// Specify initial position and velocity for a stable orbit

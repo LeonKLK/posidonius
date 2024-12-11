@@ -33,9 +33,15 @@ if __name__ == "__main__":
     star_velocity = posidonius.Axes(0., 0., 0.)
 
     # Initialization of stellar spin
-    star_rotation_period = 1.06*24 # hours (original 3.3)
+    star_rotation_period = 1.01*24 # hours (original 3.3)
     star_angular_frequency = posidonius.constants.TWO_PI/(star_rotation_period/24.) # days^-1
     star_spin = posidonius.Axes(0., 0., star_angular_frequency)
+
+    star_tides_parameters = {
+        "dissipation_factor_scale": 1,
+        "dissipation_factor": (4.992e-66)*(3.8448873e+64), # convert from g^-1 cm^-2 s^-1 to M_Sun^-1 AU^-2 day^-1
+        "love_number": 0.03,
+    }
 
     # star_tides_parameters = {
     #     "dissipation_factor_scale": 0.0,
@@ -43,40 +49,40 @@ if __name__ == "__main__":
     #     "love_number": 0.0,
     # }
 
-    star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    # star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    #
+    # w_lm_star   = star_data[0:,0]
+    # ImK2_star   = star_data[0:,1]
+    # ReK2_star   = star_data[0:,2]
+    # size_star   = np.size(w_lm_star)
+    #
+    # star_kaula_tidal_parameters_love_numbers = {
+    #     "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
+    #     "imaginary_part_love_number": ImK2_star.tolist(),
+    #     "real_part_love_number": ReK2_star.tolist(),
+    #     "num_datapoints": size_star,
+    #     "stellar_tide": 1,
+    #     "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
+    # }
+    #
+    # expected_size = 1024
+    # if size_star != expected_size or size_star <= expected_size:
+    #     warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
+    #
+    #     star_kaula_tidal_parameters_love_numbers = {
+    #         "love_number_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
+    #         "imaginary_part_love_number": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
+    #         "real_part_love_number": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
+    #         "num_datapoints": float(expected_size),
+    #         "stellar_tide": 1,
+    #         "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
+    #     }
+    #
+    # else:
+    #     raise Exception("Data size exceeds expected size.")
 
-    w_lm_star   = star_data[0:,0]
-    ImK2_star   = star_data[0:,1]
-    ReK2_star   = star_data[0:,2]
-    size_star   = np.size(w_lm_star)
-
-    star_kaula_tidal_parameters_love_numbers = {
-        "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
-        "imaginary_part_love_number": ImK2_star.tolist(),
-        "real_part_love_number": ReK2_star.tolist(),
-        "num_datapoints": size_star,
-        "stellar_tide": 1,
-        "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
-    }
-
-    expected_size = 1024
-    if size_star != expected_size or size_star <= expected_size:
-        warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
-
-        star_kaula_tidal_parameters_love_numbers = {
-            "love_number_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
-            "imaginary_part_love_number": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
-            "real_part_love_number": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
-            "num_datapoints": float(expected_size),
-            "stellar_tide": 1,
-            "spectrum_spin_rate": posidonius.constants.TWO_PI / (1.2 * posidonius.constants.DAY),
-        }
-
-    else:
-        raise Exception("Data size exceeds expected size.")
-
-    star_tides_model = posidonius.effects.tides.Kaula(star_kaula_tidal_parameters_love_numbers)
-    # star_tides_model = posidonius.effects.tides.ConstantTimeLag(star_tides_parameters)
+    # star_tides_model = posidonius.effects.tides.Kaula(star_kaula_tidal_parameters_love_numbers)
+    star_tides_model = posidonius.effects.tides.ConstantTimeLag(star_tides_parameters)
     star_tides = posidonius.effects.tides.CentralBody(star_tides_model)
     # star_tides = posidonius.effects.tides.OrbitingBody(star_tides_model)
     # star_tides = posidonius.effects.tides.Disabled()
@@ -145,8 +151,8 @@ if __name__ == "__main__":
 
     # Radius computed from equation of Zeng 2016
     planet_radius_of_gyration = 5.75e-01 # Earth type planet
-    planet_mass = 5.*Mearth / posidonius.constants.M_SUN # Solar masses (3.0e-6 solar masses = 1 earth mass)
-    planet_radius = 1.5687291659*Rearth / posidonius.constants.AU # Assume same average density with Earth's
+    planet_mass = 5. * posidonius.constants.M_EARTH # Solar masses (3.0e-6 solar masses = 1 earth mass)
+    planet_radius = 1.5687291659 * posidonius.constants.R_EARTH # Assume same average density with Earth's
 
     # first planet
     #////////// Specify initial position and velocity for a stable orbit
@@ -178,20 +184,21 @@ if __name__ == "__main__":
     #     "love_number": 0.299,
     # }
 
-    # planet_tides_parameters = {
-    #     "dissipation_factor_scale": 0.0,
-    #     "dissipation_factor": 0.0,
-    #     "love_number": 0.0,
-    # }
+    # Leon (9/12): This is required if we have a CentralBody of CTL model.
+    planet_tides_parameters = {
+        "dissipation_factor_scale": 0.0,
+        "dissipation_factor": 0.0,
+        "love_number": 0.0,
+    }
 
     # --- Choose the tidal model to use :
     # planet_tides_model = posidonius.effects.tides.Kaula(planet_kaula_tidal_parameters_love_numbers)
-    # planet_tides_model = posidonius.effects.tides.ConstantTimeLag(planet_tides_parameters)
+    planet_tides_model = posidonius.effects.tides.ConstantTimeLag(planet_tides_parameters)
+    # planet_tides_model = posidonius.effects.tides.DisabledModel()
 
     # --- Choose the type of particle (central body or orbiting body) :
     #planet_tides = posidonius.effects.tides.CentralBody(planet_tides_model)
     # planet_tides = posidonius.effects.tides.OrbitingBody(planet_tides_model)
-    planet_tides_model = posidonius.effects.tides.DisabledModel()
     planet_tides = posidonius.effects.tides.OrbitingBody(planet_tides_model)
     # planet_tides = posidonius.effects.tides.Disabled()
     # ---
@@ -214,16 +221,16 @@ if __name__ == "__main__":
     #})
     planet_wind = posidonius.effects.wind.Disabled()
     #
-    #disk_surface_density_normalization_gcm = 1000. # g.cm^-2
-    #disk_surface_density_normalization_SI = disk_surface_density_normalization_gcm * 1.0e-3 * 1.0e4 # kg.m^-2
-    #disk_properties = {
-    #'inner_edge_distance': 0.01,  # AU
-    #'outer_edge_distance': 100.0, # AU
-    #'lifetime': 1.0e5 * 365.25e0, # days
-    #'alpha': 1.0e-2,
-    #'surface_density_normalization': disk_surface_density_normalization_SI * (1.0/posidonius.constants.M_SUN) * posidonius.constants.AU**2, # Msun.AU^-2
-    #'mean_molecular_weight': 2.4,
-    #}
+    disk_surface_density_normalization_gcm = 1000. # g.cm^-2
+    disk_surface_density_normalization_SI = disk_surface_density_normalization_gcm * 1.0e-3 * 1.0e4 # kg.m^-2
+    disk_properties = {
+    'inner_edge_distance': 0.01,  # AU
+    'outer_edge_distance': 100.0, # AU
+    'lifetime': 1.0e5 * 365.25e0, # days
+    'alpha': 1.0e-2,
+    'surface_density_normalization': disk_surface_density_normalization_SI * (1.0/posidonius.constants.M_SUN) * posidonius.constants.AU**2, # Msun.AU^-2
+    'mean_molecular_weight': 2.4,
+    }
     #planet_disk = posidonius.effects.disk.CentralBody(disk_properties)
     #planet_disk = posidonius.effects.disk.OrbitingBody()
     planet_disk = posidonius.effects.disk.Disabled()
