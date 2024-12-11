@@ -104,14 +104,16 @@ if __name__ == "__main__":
     #
     disk_surface_density_normalization_gcm = 1000. # g.cm^-2
     disk_surface_density_normalization_SI = disk_surface_density_normalization_gcm * 1.0e-3 * 1.0e4 # kg.m^-2
+
     disk_properties = {
-    'inner_edge_distance': 0.09,  # AU
-    'outer_edge_distance': 50.0, # AU
-    'lifetime': 1.0e5 * 365.25e0, # days
-    'alpha': 1.0e-2,
-    'surface_density_normalization': disk_surface_density_normalization_SI * (1.0/posidonius.constants.M_SUN) * posidonius.constants.AU**2, # Msun.AU^-2
-    'mean_molecular_weight': 2.4,
+        'inner_edge_distance': 0.045,  # AU - Just inside the inner planet's semi-major axis
+        'outer_edge_distance': 50.0,   # AU - No change
+        'lifetime': 2.0e5 * 365.25,    # 200,000 years to allow sufficient migration time
+        'alpha': 5.0e-3,               # Reduced viscosity for stable migration
+        'surface_density_normalization': 0.05 * disk_surface_density_normalization_SI * (1.0 / posidonius.constants.M_SUN) * posidonius.constants.AU**2,  # Increased surface density for stronger torques
+        'mean_molecular_weight': 2.4   # No change
     }
+
     star_disk = posidonius.effects.disk.CentralBody(disk_properties)
     #star_disk = posidonius.effects.disk.OrbitingBody()
     # star_disk = posidonius.effects.disk.Disabled()
@@ -151,7 +153,7 @@ if __name__ == "__main__":
     # first planet
     #////////// Specify initial position and velocity for a stable orbit
     #////// Keplerian orbital elements, in the `asteroidal' format of Mercury code
-    a = 0.07                # semi-major axis (in AU)
+    a = 0.053                # semi-major axis (in AU)
     e = 0.00001;                               # eccentricity
     i = 0. * posidonius.constants.DEG2RAD;  # inclination (degrees)
     p = 0. * posidonius.constants.DEG2RAD;  # argrument of pericentre (degrees)
@@ -247,7 +249,7 @@ if __name__ == "__main__":
     universe.add_particle(planet)
 
     # Second planet
-    a = 0.11111807363               # semi-major axis (in AU)
+    a = 0.08413225575               # semi-major axis (in AU)
     e = 0.00001;                               # eccentricity
     i = 0. * posidonius.constants.DEG2RAD;  # inclination (degrees)
     p = 0. * posidonius.constants.DEG2RAD;  # argrument of pericentre (degrees)
