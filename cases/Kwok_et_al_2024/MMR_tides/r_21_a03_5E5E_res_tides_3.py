@@ -12,7 +12,7 @@ if __name__ == "__main__":
     #filename = posidonius.constants.BASE_DIR+"target/example.json"
 
     initial_time = 5e6*365.25 # time [days] where simulation starts
-    time_step = 0.04 # days, better choose 1/20 of the smallest orbital period
+    time_step = 0.1 # days, better choose 1/20 of the smallest orbital period
     time_limit = 365.25 * 5e8 # days
     historic_snapshot_period = 365.25*500.  #*10. #*time_step # days
     recovery_snapshot_period = 365.25*100000. # days
@@ -345,11 +345,11 @@ if __name__ == "__main__":
     planet.set_evolution(planet_evolution)
     universe.add_particle(planet)
 
-    # whfast_alternative_coordinates="DemocraticHeliocentric"
+    whfast_alternative_coordinates="DemocraticHeliocentric"
     #whfast_alternative_coordinates="WHDS"
     #whfast_alternative_coordinates="Jacobi"
-    # universe.write(filename, integrator="WHFast", whfast_alternative_coordinates=whfast_alternative_coordinates)
-    universe.write(filename, integrator="IAS15")
+    universe.write(filename, integrator="WHFast", whfast_alternative_coordinates=whfast_alternative_coordinates)
+    # universe.write(filename, integrator="IAS15")
     #universe.write(filename, integrator="LeapFrog")
 
 

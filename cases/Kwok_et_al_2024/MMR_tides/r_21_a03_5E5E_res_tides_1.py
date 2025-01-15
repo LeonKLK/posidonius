@@ -12,7 +12,7 @@ if __name__ == "__main__":
     #filename = posidonius.constants.BASE_DIR+"target/example.json"
 
     initial_time = 5e6*365.25 # time [days] where simulation starts
-    time_step = 0.04 # days, better choose 1/20 of the smallest orbital period
+    time_step = 0.1 # days, better choose 1/20 of the smallest orbital period
     time_limit = 365.25 * 5e8 # days
     historic_snapshot_period = 365.25*500.  #*10. #*time_step # days
     recovery_snapshot_period = 365.25*100000. # days
@@ -45,6 +45,8 @@ if __name__ == "__main__":
     ReK2_star   = star_data[0:,2]
     size_star   = np.size(w_lm_star)
 
+    # Supposedly, the code is in the unit of days, thus "spectrum_spin_rate" should be in days instead of seconds.
+    # However, in the interpolation of k2, we use the SI unit anyway, so it is fine to use SI unit for "spectrum_spin_rate".
     star_kaula_tidal_parameters_love_numbers = {
         "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
         "imaginary_part_love_number": ImK2_star.tolist(),
@@ -337,11 +339,11 @@ if __name__ == "__main__":
     planet.set_evolution(planet_evolution)
     universe.add_particle(planet)
 
-    # whfast_alternative_coordinates="DemocraticHeliocentric"
+    whfast_alternative_coordinates="DemocraticHeliocentric"
     #whfast_alternative_coordinates="WHDS"
     #whfast_alternative_coordinates="Jacobi"
-    # universe.write(filename, integrator="WHFast", whfast_alternative_coordinates=whfast_alternative_coordinates)
-    universe.write(filename, integrator="IAS15")
+    universe.write(filename, integrator="WHFast", whfast_alternative_coordinates=whfast_alternative_coordinates)
+    # universe.write(filename, integrator="IAS15")
     #universe.write(filename, integrator="LeapFrog")
 
 
