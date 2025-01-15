@@ -15,7 +15,7 @@ if __name__ == "__main__":
     time_step = 0.2 # days, better choose 1/20 of the smallest orbital period
     time_limit = 365.25 * 5e8 # days
     historic_snapshot_period = 365.25*500.  #*10. #*time_step # days
-    recovery_snapshot_period = 365.25*2000. # days
+    recovery_snapshot_period = 365.25*100000. # days
     consider_effects = posidonius.ConsiderEffects({
         "tides": True,
         "rotational_flattening": False,
@@ -128,7 +128,6 @@ if __name__ == "__main__":
     # star_evolution = posidonius.NonEvolving()
     #
     star = posidonius.Particle(star_mass, star_radius, star_radius_of_gyration, star_position, star_velocity, star_spin)
-    # star.set_tides(star_tides)
     star.set_rotational_flattening(star_rotational_flattening)
     star.set_general_relativity(star_general_relativity)
     star.set_wind(star_wind)
