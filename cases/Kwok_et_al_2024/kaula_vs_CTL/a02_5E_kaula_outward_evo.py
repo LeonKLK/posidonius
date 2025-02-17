@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     initial_time = 5e6*365.25 # time [days] where simulation starts
     time_step = 0.05 # days
-    time_limit = 3e6*365.25 # 18.772866 *100.# 2.*365.25 #* 1.0e2 # days
+    time_limit = 2e7*365.25 # 18.772866 *100.# 2.*365.25 #* 1.0e2 # days
     historic_snapshot_period = 500.*365.25 # 1.*365.25 # days
     recovery_snapshot_period = 2000.*365.25 # days
     consider_effects = posidonius.ConsiderEffects({

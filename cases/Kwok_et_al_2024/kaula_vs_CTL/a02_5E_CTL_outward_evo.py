@@ -12,7 +12,7 @@ if __name__ == "__main__":
 
     initial_time = 5e6*365.25 # time [days] where simulation starts
     time_step = 0.05 # days
-    time_limit = 3e6*365.25 # 18.772866 *100.# 2.*365.25 #* 1.0e2 # days
+    time_limit = 2e7*365.25 # 18.772866 *100.# 2.*365.25 #* 1.0e2 # days
     historic_snapshot_period = 500.*365.25 # 1.*365.25 # days
     recovery_snapshot_period = 2000.*365.25 # days
     consider_effects = posidonius.ConsiderEffects({
@@ -221,16 +221,16 @@ if __name__ == "__main__":
     #})
     planet_wind = posidonius.effects.wind.Disabled()
     #
-    disk_surface_density_normalization_gcm = 1000. # g.cm^-2
-    disk_surface_density_normalization_SI = disk_surface_density_normalization_gcm * 1.0e-3 * 1.0e4 # kg.m^-2
-    disk_properties = {
-    'inner_edge_distance': 0.01,  # AU
-    'outer_edge_distance': 100.0, # AU
-    'lifetime': 1.0e5 * 365.25e0, # days
-    'alpha': 1.0e-2,
-    'surface_density_normalization': disk_surface_density_normalization_SI * (1.0/posidonius.constants.M_SUN) * posidonius.constants.AU**2, # Msun.AU^-2
-    'mean_molecular_weight': 2.4,
-    }
+    #disk_surface_density_normalization_gcm = 1000. # g.cm^-2
+    #disk_surface_density_normalization_SI = disk_surface_density_normalization_gcm * 1.0e-3 * 1.0e4 # kg.m^-2
+    #disk_properties = {
+    #'inner_edge_distance': 0.01,  # AU
+    #'outer_edge_distance': 100.0, # AU
+    #'lifetime': 1.0e5 * 365.25e0, # days
+    #'alpha': 1.0e-2,
+    #'surface_density_normalization': disk_surface_density_normalization_SI * (1.0/posidonius.constants.M_SUN) * posidonius.constants.AU**2, # Msun.AU^-2
+    #'mean_molecular_weight': 2.4,
+    #}
     #planet_disk = posidonius.effects.disk.CentralBody(disk_properties)
     #planet_disk = posidonius.effects.disk.OrbitingBody()
     planet_disk = posidonius.effects.disk.Disabled()
