@@ -24,7 +24,7 @@ pub fn get_data_dirname(test_name: &String) -> (String, String) {
 }
 
 #[allow(dead_code)]
-pub fn load_kaula_parameters(file_path: &str) -> Result<posidonius::KaulaParameters, Box<dyn Error>> {
+pub fn load_kaula_parameters(file_path: &str, stellar_tide:bool, spectrum_spin_rate: f64) -> Result<posidonius::KaulaParameters, Box<dyn Error>> {
     // Open the file
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
@@ -96,9 +96,8 @@ pub fn load_kaula_parameters(file_path: &str) -> Result<posidonius::KaulaParamet
         real_part_love_number,
         imaginary_part_love_number,
         num_datapoints: num_datapoints as f64,
-        // below two are placeholder for the moment
-        stellar_tide: 0, // Specified the type of tides
-        spectrum_spin_rate: 0.0, // Specified the initial spin rate of the star (stellar tide specific)
+        stellar_tide, // Specified the type of tides
+        spectrum_spin_rate, // Specified the initial spin rate of the star (stellar tide specific)
         polynomials: posidonius::Polynomials::new(),
         kaula_tidal_force: posidonius::Axes { x: 0.0, y: 0.0, z: 0.0 },
     })

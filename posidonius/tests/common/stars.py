@@ -241,6 +241,7 @@ def solar_like_for_kaula_1(star_mass, position, velocity, general_relativity_imp
     radius_of_gyration = 0.2645751311 # Sun
 
     star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    spectrum_stellar_spin_period = 1.2 * posidonius.constants.DAY
 
     w_lm_star   = star_data[0:,0]
     ImK2_star   = star_data[0:,1]
@@ -256,8 +257,8 @@ def solar_like_for_kaula_1(star_mass, position, velocity, general_relativity_imp
             "imaginary_part_love_number": ImK2_star.tolist(),
             "real_part_love_number": ReK2_star.tolist(),
             "num_datapoints": size_star,
-            "stellar_tide": 0,
-            "spectrum_spin_rate": 0.0,
+            "stellar_tide": True,
+            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
         }
 
     else:
@@ -303,6 +304,7 @@ def solar_like_for_kaula_2(star_mass, position, velocity, general_relativity_imp
     radius_of_gyration = 0.2645751311 # Sun
 
     star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    spectrum_stellar_spin_period = 1.2 * posidonius.constants.DAY
 
     w_lm_star   = star_data[0:,0]
     ImK2_star   = star_data[0:,1]
@@ -318,6 +320,8 @@ def solar_like_for_kaula_2(star_mass, position, velocity, general_relativity_imp
             "imaginary_part_love_number": ImK2_star.tolist(),
             "real_part_love_number": ReK2_star.tolist(),
             "num_datapoints": size_star,
+            "stellar_tide": True,
+            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
         }
 
     else:

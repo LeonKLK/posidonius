@@ -20,7 +20,9 @@ pub struct KaulaParameters {
     #[serde(with = "BigArray")]
     pub imaginary_part_love_number: [f64; 32 * 32], // The imaginary part of the complex love number
     pub num_datapoints: f64, // The number of point stored in the 32 by 32 array
-    pub stellar_tide: i64, // Specified the type of tides
+    // If we are simulating stellar tide, then we need the value of the spectrum spin rate,
+    // which was an input value of stellar spin rate from the computation of the spectrum.
+    pub stellar_tide: bool, // Specified the type of tides
     pub spectrum_spin_rate: f64, // Specified the initial spin rate of the star (stellar tide specific)
     #[serde(default)]
     pub polynomials: Polynomials,
@@ -1029,8 +1031,7 @@ fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_
 
     // These small part of modification is only for stellar tide, kaula with a fixed spectrum
     // , also why I declare the new input as "stellar_spin_rate".
-
-    if kaula_param.stellar_tide == 1 {
+    if kaula_param.stellar_tide == true {
         let spectrum_spin_rate = kaula_param.spectrum_spin_rate; // should be in days
         wk2 = wk2 * (spectrum_spin_rate/stellar_spin_rate);
     }
@@ -1038,11 +1039,6 @@ fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_
     let mut im_k2;
     let re_k2;
     // Find the index of the closest match to use for the interpolation
-    // TODO will panic if wk2 < love_number[0]
-
-    // assert!(wk2 > love_number_excitation_frequency[0]);
-    // assert!(wk2 < love_number_excitation_frequency[love_number_excitation_frequency.len() - 1]);
-
     if wk2 <= kaula_param.love_number_excitation_frequency[0] {
         // If wk2 is less than or equal to the first element, take the first value
         im_k2 = kaula_param.imaginary_part_love_number[0];
@@ -1071,7 +1067,7 @@ fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_
         };
     }
 
-    if kaula_param.stellar_tide == 1 {
+    if kaula_param.stellar_tide == true {
         let spectrum_spin_rate = kaula_param.spectrum_spin_rate;
         im_k2 = im_k2 * (stellar_spin_rate/spectrum_spin_rate).powi(2);
     }

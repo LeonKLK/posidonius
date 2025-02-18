@@ -3845,7 +3845,7 @@
                   0.1903794474727353
                 ],
                 "spectrum_spin_rate": 0.0,
-                "stellar_tide": 0
+                "stellar_tide": false
               }
             }
           },

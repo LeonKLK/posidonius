@@ -112,7 +112,7 @@ class Kaula(object):
                 "imaginary_part_love_number": [0.] * 1024,
                 "real_part_love_number": [0.] * 1024,
                 "num_datapoints": 0.0,
-                "stellar_tide": int(0),
+                "stellar_tide": False,
                 "spectrum_spin_rate": 0.0,
                 "kaula_tidal_force": Axes( 0.0, 0.0, 0.0).get(),
             },
@@ -121,12 +121,11 @@ class Kaula(object):
         for key, value in six.iteritems(input_parameters):
             if key in self._data["Kaula"]:
                 if key == "stellar_tide":
-                    # Ensure the value is converted to an integer
-                    try:
-                        self._data["Kaula"][key] = int(value)
-                    except ValueError:
-                        print(f"Invalid value for stellar_tide: {value}. Expected an integer.")
-                        raise
+                    # Ensure the value is strictly a boolean
+                    if isinstance(value, bool):
+                        self._data["Kaula"][key] = value
+                    else:
+                        raise ValueError(f"Invalid value for stellar_tide: {value}. Expected a boolean (True or False).")
                 elif isinstance(value, (tuple, list)):
                     # Convert lists or tuples to a list of floats
                     self._data["Kaula"][key] = [float(v) for v in value]

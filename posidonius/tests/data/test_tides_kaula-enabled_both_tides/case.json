@@ -340,7 +340,7 @@
       {
         "angular_momentum": {
           "x": 0.0,
-          "y": 0.0,
+          "y": -0.0,
           "z": 3.2799943308457716e-06
         },
         "dangular_momentum_dt": {
@@ -503,7 +503,7 @@
         },
         "spin": {
           "x": 0.0,
-          "y": 0.0,
+          "y": -0.0,
           "z": 2.1666156231653746
         },
         "tides": {
@@ -3606,8 +3606,8 @@
                   0.45293284781903675,
                   0.45293284781903675
                 ],
-                "spectrum_spin_rate": 0.0,
-                "stellar_tide": 0
+                "spectrum_spin_rate": 6.0601710138691996e-05,
+                "stellar_tide": true
               }
             }
           },
@@ -6934,7 +6934,7 @@
                   0.1903794474727353
                 ],
                 "spectrum_spin_rate": 0.0,
-                "stellar_tide": 0
+                "stellar_tide": false
               }
             }
           },

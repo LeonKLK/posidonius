@@ -3146,8 +3146,8 @@
                   8e-8
                 ],
                 "num_datapoints": 1024.0,
-                "stellar_tide": 0,
-                "spectrum_spin_rate": 0.0,
+                "stellar_tide": true,
+                "spectrum_spin_rate": 0.000060601710138691996,
                 "polynomials": {
                   "eccentricity_function_g_2pq": [
                     [

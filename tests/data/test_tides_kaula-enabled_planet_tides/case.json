@@ -3384,7 +3384,7 @@
                   0.0005221179749576531
                 ],
                 "num_datapoints": 471.0,
-                "stellar_tide": 0,
+                "stellar_tide": false,
                 "spectrum_spin_rate": 0.0,
                 "polynomials": {
                   "eccentricity_function_g_2pq": [
