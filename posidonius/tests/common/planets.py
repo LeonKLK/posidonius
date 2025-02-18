@@ -257,6 +257,8 @@ def trappist1_h_like(mass, position, velocity, spin, evolution):
             "imaginary_part_love_number": ImK2_planet.tolist() + [ImK2_planet[-1]] * (expected_size - len(ImK2_planet)),
             "real_part_love_number": ReK2_planet.tolist() + [ReK2_planet[-1]] * (expected_size - len(ReK2_planet)),
             "num_datapoints": float(expected_size),
+            "stellar_tide": 0,
+            "spectrum_spin_rate": 0.0,
         }
 
     else:

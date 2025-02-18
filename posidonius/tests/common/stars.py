@@ -256,6 +256,8 @@ def solar_like_for_kaula_1(star_mass, position, velocity, general_relativity_imp
             "imaginary_part_love_number": ImK2_star.tolist(),
             "real_part_love_number": ReK2_star.tolist(),
             "num_datapoints": size_star,
+            "stellar_tide": 0,
+            "spectrum_spin_rate": 0.0,
         }
 
     else:
