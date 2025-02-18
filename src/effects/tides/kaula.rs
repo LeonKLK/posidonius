@@ -20,6 +20,10 @@ pub struct KaulaParameters {
     #[serde(with = "BigArray")]
     pub imaginary_part_love_number: [f64; 32 * 32], // The imaginary part of the complex love number
     pub num_datapoints: f64, // The number of point stored in the 32 by 32 array
+    // If we are simulating stellar tide, then we need the value of the spectrum spin rate,
+    // which was an input value of stellar spin rate from the computation of the spectrum.
+    pub stellar_tide: bool, // Specified the type of tides
+    pub spectrum_spin_rate: f64, // Specified the initial spin rate of the star (stellar tide specific)
     #[serde(default)]
     pub polynomials: Polynomials,
     pub kaula_tidal_force: Axes,
@@ -113,6 +117,8 @@ fn calculate_tidal_force_component(tidal_host_particle: &mut Particle, particle:
         params.kaula_tidal_force.x = radial_component_of_the_tidal_force_secular * sin_theta * cos_phi + normal_component_of_the_tidal_force_secular * cos_theta * cos_phi - orthogonal_component_of_the_tidal_force_secular * sin_phi;
         params.kaula_tidal_force.y = radial_component_of_the_tidal_force_secular * sin_theta * sin_phi + normal_component_of_the_tidal_force_secular * cos_theta * sin_phi + orthogonal_component_of_the_tidal_force_secular * cos_phi;
         params.kaula_tidal_force.z = radial_component_of_the_tidal_force_secular * cos_theta - normal_component_of_the_tidal_force_secular * sin_theta;
+        // dbg!(params);
+        // panic!();
     } else {
         unreachable!();
     }
@@ -169,6 +175,8 @@ fn calculate_radial_component_of_the_tidal_force(
         TidesEffect::OrbitingBody(TidalModel::Kaula(ref mut params)) => params,
         _ => unreachable!(),
     };
+    // dbg!(kaula_param);
+    // panic!();
 
     // ---
     // --- local quantities needed --- //
@@ -185,8 +193,8 @@ fn calculate_radial_component_of_the_tidal_force(
             // --- If circular coplanar orbit
             let frequ_2010 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(0., 1., 0., spin, orbital_frequency);
             let frequ_2200 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(2., 0., 0., spin, orbital_frequency);
-            let (rek2_2010, _imk2_2010) = calculate_kaula_numbers(frequ_2010, kaula_param, central_body);
-            let (_rek2_2200, imk2_2200) = calculate_kaula_numbers(frequ_2200, kaula_param, central_body);
+            let (rek2_2010, _imk2_2010) = calculate_kaula_numbers(frequ_2010, kaula_param, central_body, spin);
+            let (_rek2_2200, imk2_2200) = calculate_kaula_numbers(frequ_2200, kaula_param, central_body, spin);
             radial_force = cste * ((3_f64 / 4_f64) * rek2_2010 + (9_f64 / 4_f64) * imk2_2200);
             radial_force_secular = radial_force;
         } else {
@@ -213,8 +221,8 @@ fn calculate_radial_component_of_the_tidal_force(
             for (q, g_201q) in kaula_param.polynomials.eccentricity_function_g_20q.iter().zip(kaula_param.polynomials.eccentricity_function_g_21q.iter()).skip(q_min).take(q_max).enumerate() {
                 let frequ_201q = calculate_tidal_excitation_frequency_mode_sigma_2mpq(0., 1., q as f64 - order as f64, spin, orbital_frequency);
                 let frequ_220q = calculate_tidal_excitation_frequency_mode_sigma_2mpq(2., 0., q as f64 - order as f64, spin, orbital_frequency);
-                let (rek2_201q, imk2_201q) = calculate_kaula_numbers(frequ_201q, kaula_param, central_body);
-                let (rek2_220q, imk2_220q) = calculate_kaula_numbers(frequ_220q, kaula_param, central_body);
+                let (rek2_201q, imk2_201q) = calculate_kaula_numbers(frequ_201q, kaula_param, central_body, spin);
+                let (rek2_220q, imk2_220q) = calculate_kaula_numbers(frequ_220q, kaula_param, central_body, spin);
 
                 let mut sum_over_j_1: f64 = 0.;
                 let mut sum_over_j_3: f64 = 0.;
@@ -313,9 +321,9 @@ fn calculate_radial_component_of_the_tidal_force(
                 let frequ_20pq: f64 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(0., tmp_p, tmp_q, spin, orbital_frequency);
                 let frequ_21pq: f64 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(1., tmp_p, tmp_q, spin, orbital_frequency);
                 let frequ_22pq: f64 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(2., tmp_p, tmp_q, spin, orbital_frequency);
-                let (rek2_20pq, imk2_20pq) = calculate_kaula_numbers(frequ_20pq, kaula_param, central_body);
-                let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body);
-                let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body);
+                let (rek2_20pq, imk2_20pq) = calculate_kaula_numbers(frequ_20pq, kaula_param, central_body, spin);
+                let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body, spin);
+                let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body, spin);
 
                 let mut sum_over_k_m0: f64 = 0.;
                 let mut sum_over_k_m1: f64 = 0.;
@@ -479,7 +487,7 @@ fn calculate_normal_component_of_the_tidal_force(
                         let phase_beta: f64 = compute_phase_beta(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
                         let phase_alpha_1: f64 = compute_phase_alpha_1(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
 
-                        let (rek2_20pq, imk2_20pq) = calculate_kaula_numbers(frequ_20pq, kaula_param, central_body);
+                        let (rek2_20pq, imk2_20pq) = calculate_kaula_numbers(frequ_20pq, kaula_param, central_body, spin);
 
                         let cos_alpha_1: f64 = phase_alpha_1.cos();
                         let sin_alpha_1: f64 = phase_alpha_1.sin();
@@ -536,7 +544,7 @@ fn calculate_normal_component_of_the_tidal_force(
                         let phase_alpha_1: f64 = compute_phase_alpha_1(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
                         let phase_alpha_2: f64 = compute_phase_alpha_2(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
 
-                        let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body);
+                        let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body, spin);
 
                         let cos_alpha_1: f64 = phase_alpha_1.cos();
                         let sin_alpha_1: f64 = phase_alpha_1.sin();
@@ -591,7 +599,7 @@ fn calculate_normal_component_of_the_tidal_force(
                         // let phase_beta:f64 =compute_phase_beta(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_ascending_node);
                         let phase_alpha_2: f64 = compute_phase_alpha_2(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
 
-                        let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body);
+                        let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body, spin);
 
                         let cos_alpha_2: f64 = phase_alpha_2.cos();
                         let sin_alpha_2: f64 = phase_alpha_2.sin();
@@ -690,7 +698,7 @@ fn calculate_orthogonal_component_of_the_tidal_force(
     if obliquity <= 1.0e-8 {
         if eccentricity == 0. {
             let frequ_2200 = calculate_tidal_excitation_frequency_mode_sigma_2mpq(2., 0., 0., spin, orbital_frequency);
-            let (_rek2_2200, imk2_2200) = calculate_kaula_numbers(frequ_2200, kaula_param, central_body);
+            let (_rek2_2200, imk2_2200) = calculate_kaula_numbers(frequ_2200, kaula_param, central_body, spin);
             orthogonal_force = cste_2d * (3_f64 / 2_f64) * imk2_2200;
             orthogonal_force_secular = orthogonal_force;
         } else {
@@ -715,7 +723,7 @@ fn calculate_orthogonal_component_of_the_tidal_force(
             // for q in -7..8{
             for (q, g_20q) in kaula_param.polynomials.eccentricity_function_g_20q.iter().skip(q_min).take(q_max).enumerate() {
                 let frequ_220q = calculate_tidal_excitation_frequency_mode_sigma_2mpq(2., 0., q as f64 - order as f64, spin, orbital_frequency);
-                let (rek2_220q, imk2_220q) = calculate_kaula_numbers(frequ_220q, kaula_param, central_body);
+                let (rek2_220q, imk2_220q) = calculate_kaula_numbers(frequ_220q, kaula_param, central_body, spin);
 
                 let mut sum_over_j_2: f64 = 0.;
                 let mut sum_over_j_2_secular: f64 = 0.;
@@ -803,7 +811,7 @@ fn calculate_orthogonal_component_of_the_tidal_force(
                         let phase_alpha_3: f64 = compute_phase_alpha_3(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
                         let phase_alpha_4: f64 = compute_phase_alpha_4(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
 
-                        let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body);
+                        let (rek2_21pq, imk2_21pq) = calculate_kaula_numbers(frequ_21pq, kaula_param, central_body, spin);
 
                         let cos_alpha_1: f64 = (phase_alpha_3).cos();
                         let sin_alpha_1: f64 = (phase_alpha_3).sin();
@@ -866,7 +874,7 @@ fn calculate_orthogonal_component_of_the_tidal_force(
                         let phase_alpha_3: f64 = compute_phase_alpha_3(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
                         let phase_alpha_4: f64 = compute_phase_alpha_4(tmp_p, tmp_q, tmp_k, tmp_j, mean_anomaly, spin_angle, argument_perihelion, longitude_of_ascending_node, heliocentric_varphi);
 
-                        let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body);
+                        let (rek2_22pq, imk2_22pq) = calculate_kaula_numbers(frequ_22pq, kaula_param, central_body, spin);
 
                         let cos_alpha_1: f64 = (phase_alpha_3).cos();
                         let sin_alpha_1: f64 = (phase_alpha_3).sin();
@@ -1013,21 +1021,24 @@ fn compute_phase_alpha_4(p: f64, q: f64, k: f64, j: f64, mean_anomaly: f64, spin
 }
 
 // --- Find the real part and the imaginary part of the Love number associated to the excitation frequenccy wk2
-fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_body: bool) -> (f64, f64) {
+fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_body: bool, stellar_spin_rate: f64) -> (f64, f64) {
     // Planetary tide: planets have symmetric tidal response. stars DO NOT have symmetric tidal response
+
     let parity = !central_body & (wk2 < 0.0);
     if parity {
         wk2 = wk2.abs();
     }
 
-    let im_k2;
+    // These small part of modification is only for stellar tide, kaula with a fixed spectrum
+    // , also why I declare the new input as "stellar_spin_rate".
+    if kaula_param.stellar_tide == true {
+        let spectrum_spin_rate = kaula_param.spectrum_spin_rate; // should be in days
+        wk2 = wk2 * (spectrum_spin_rate/stellar_spin_rate);
+    }
+
+    let mut im_k2;
     let re_k2;
     // Find the index of the closest match to use for the interpolation
-    // TODO will panic if wk2 < love_number[0]
-
-    // assert!(wk2 >love_number_excitation_frequency[0]);
-    // assert!(wk2 < love_number_excitation_frequency[love_number_excitation_frequency.len() - 1]);
-
     if wk2 <= kaula_param.love_number_excitation_frequency[0] {
         // If wk2 is less than or equal to the first element, take the first value
         im_k2 = kaula_param.imaginary_part_love_number[0];
@@ -1054,6 +1065,11 @@ fn calculate_kaula_numbers(mut wk2: f64, kaula_param: &KaulaParameters, central_
                 re_k2 = (1.0 - delta) * kaula_param.real_part_love_number[i - 1] + delta * kaula_param.real_part_love_number[i];
             }
         };
+    }
+
+    if kaula_param.stellar_tide == true {
+        let spectrum_spin_rate = kaula_param.spectrum_spin_rate;
+        im_k2 = im_k2 * (stellar_spin_rate/spectrum_spin_rate).powi(2);
     }
 
     if parity {

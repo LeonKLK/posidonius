@@ -1,4 +1,6 @@
 import posidonius
+import numpy as np
+import warnings
 
 def solar_like(mass, dissipation_factor_scale, position, velocity, rotation_period, general_relativity_implementation, evolution, wind_k_factor=4.0e-18, wind_rotation_saturation=1.7592918860102842):
     """
@@ -215,3 +217,165 @@ def brown_dwarf(mass, dissipation_factor_scale, position, velocity, general_rela
     particle.set_disk(disk)
     particle.set_evolution(evolution)
     return particle
+
+# NewFeatures: New functions for the tests: solar_like_for_kaula_1, solar_like_for_kaula_2, red_dwarf_like_for_kaula
+def solar_like_for_kaula_1(star_mass, position, velocity, general_relativity_implementation, star_evolution):
+    if general_relativity_implementation == "Disabled":
+        star_general_relativity = posidonius.effects.general_relativity.Disabled()
+    else:
+        raise Exception("GR model not match!")
+
+    if type(star_evolution) == posidonius.effects.evolution.NonEvolving:
+        star_evolution = posidonius.NonEvolving()
+    else:
+        raise Exception("Evolution type should be Baraffe1998, Baraffe2015, BolmontMathis2016, GalletBolmont2017 or non evolving to create a solar like body!")
+
+    star_rotation_period = 1. # days
+    angular_frequency = posidonius.constants.TWO_PI/(star_rotation_period) # days^-1
+    inclination = 0.
+    obliquity = 0.
+    spin = posidonius.tools.calculate_spin(angular_frequency, inclination, obliquity)
+
+    radius_factor = 1.0
+    radius = radius_factor * posidonius.constants.R_SUN
+    radius_of_gyration = 0.2645751311 # Sun
+
+    star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    spectrum_stellar_spin_period = 1.2 * posidonius.constants.DAY
+
+    w_lm_star   = star_data[0:,0]
+    ImK2_star   = star_data[0:,1]
+    ReK2_star   = star_data[0:,2]
+    size_star   = np.size(w_lm_star)
+
+    expected_size = 1024
+    if size_star != expected_size or size_star <= expected_size:
+        warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
+
+        star_kaula_tidal_parameters_love_numbers = {
+            "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
+            "imaginary_part_love_number": ImK2_star.tolist(),
+            "real_part_love_number": ReK2_star.tolist(),
+            "num_datapoints": size_star,
+            "stellar_tide": True,
+            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
+        }
+
+    else:
+        raise Exception("Data size exceeds expected size.")
+
+    star_tides_model = posidonius.effects.tides.Kaula(star_kaula_tidal_parameters_love_numbers)
+    star_tides = posidonius.effects.tides.CentralBody(star_tides_model)
+
+    star_rotational_flattening = posidonius.effects.rotational_flattening.Disabled()
+
+    star_wind = posidonius.effects.wind.Disabled()
+
+    star_disk = posidonius.effects.disk.Disabled()
+
+    particle = posidonius.Particle(star_mass, radius, radius_of_gyration, position, velocity, spin)
+    particle.set_tides(star_tides)
+    particle.set_rotational_flattening(star_rotational_flattening)
+    particle.set_general_relativity(star_general_relativity)
+    particle.set_wind(star_wind)
+    particle.set_disk(star_disk)
+    particle.set_evolution(star_evolution)
+    return particle
+
+def solar_like_for_kaula_2(star_mass, position, velocity, general_relativity_implementation, star_evolution):
+    if general_relativity_implementation == "Disabled":
+        star_general_relativity = posidonius.effects.general_relativity.Disabled()
+    else:
+        raise Exception("GR model not match!")
+
+    if type(star_evolution) == posidonius.effects.evolution.NonEvolving:
+        star_evolution = posidonius.NonEvolving()
+    else:
+        raise Exception("Evolution type should be Baraffe1998, Baraffe2015, BolmontMathis2016, GalletBolmont2017 or non evolving to create a solar like body!")
+
+    star_rotation_period = 2.9 # days
+    angular_frequency = posidonius.constants.TWO_PI/(star_rotation_period) # days^-1
+    inclination = 0.
+    obliquity = 0.
+    spin = posidonius.tools.calculate_spin(angular_frequency, inclination, obliquity)
+
+    radius_factor = 1.0
+    radius = radius_factor * posidonius.constants.R_SUN
+    radius_of_gyration = 0.2645751311 # Sun
+
+    star_data = np.loadtxt('./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt',comments='#')
+    spectrum_stellar_spin_period = 1.2 * posidonius.constants.DAY
+
+    w_lm_star   = star_data[0:,0]
+    ImK2_star   = star_data[0:,1]
+    ReK2_star   = star_data[0:,2]
+    size_star   = np.size(w_lm_star)
+
+    expected_size = 1024
+    if size_star != expected_size or size_star <= expected_size:
+        warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
+
+        star_kaula_tidal_parameters_love_numbers = {
+            "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
+            "imaginary_part_love_number": ImK2_star.tolist(),
+            "real_part_love_number": ReK2_star.tolist(),
+            "num_datapoints": size_star,
+            "stellar_tide": True,
+            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
+        }
+
+    else:
+        raise Exception("Data size exceeds expected size.")
+
+    star_tides_model = posidonius.effects.tides.Kaula(star_kaula_tidal_parameters_love_numbers)
+    star_tides = posidonius.effects.tides.CentralBody(star_tides_model)
+
+    star_rotational_flattening = posidonius.effects.rotational_flattening.Disabled()
+    star_wind = posidonius.effects.wind.Disabled()
+    star_disk = posidonius.effects.disk.Disabled()
+
+    particle = posidonius.Particle(star_mass, radius, radius_of_gyration, position, velocity, spin)
+    particle.set_tides(star_tides)
+    particle.set_rotational_flattening(star_rotational_flattening)
+    particle.set_general_relativity(star_general_relativity)
+    particle.set_wind(star_wind)
+    particle.set_disk(star_disk)
+    particle.set_evolution(star_evolution)
+    return particle
+
+def red_dwarf_like_for_kaula(star_mass, position, velocity, general_relativity_implementation, star_evolution):
+    if general_relativity_implementation == "Disabled":
+        star_general_relativity = posidonius.effects.general_relativity.Disabled()
+    else:
+        raise Exception("GR model not match!")
+
+    if type(star_evolution) == posidonius.effects.evolution.NonEvolving:
+        star_evolution = posidonius.NonEvolving()
+    else:
+        raise Exception("Evolution type should be Baraffe1998, Baraffe2015, BolmontMathis2016, GalletBolmont2017 or non evolving to create a solar like body!")
+
+    star_rotation_period = 1. # days
+    angular_frequency = posidonius.constants.TWO_PI/(star_rotation_period) # days^-1
+    inclination = 0.
+    obliquity = 0.
+    spin = posidonius.tools.calculate_spin(angular_frequency, inclination, obliquity)
+
+    radius_factor = 0.117
+    radius = radius_factor * posidonius.constants.R_SUN
+    radius_of_gyration = 4.47e-01 # Brown dwarf
+
+    star_tides_model = posidonius.effects.tides.DisabledModel()
+    star_tides = posidonius.effects.tides.CentralBody(star_tides_model)
+    star_rotational_flattening = posidonius.effects.rotational_flattening.Disabled()
+    star_wind = posidonius.effects.wind.Disabled()
+    star_disk = posidonius.effects.disk.Disabled()
+
+    particle = posidonius.Particle(star_mass, radius, radius_of_gyration, position, velocity, spin)
+    particle.set_tides(star_tides)
+    particle.set_rotational_flattening(star_rotational_flattening)
+    particle.set_general_relativity(star_general_relativity)
+    particle.set_wind(star_wind)
+    particle.set_disk(star_disk)
+    particle.set_evolution(star_evolution)
+    return particle
+

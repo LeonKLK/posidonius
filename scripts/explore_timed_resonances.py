@@ -46,7 +46,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     filename = args.historic_snapshot_filename
     n_particles, data = posidonius.analysis.history.read(filename)
-    star_data, planets_data, planets_keys = posidonius.analysis.history.classify(n_particles, data, discard_first_hundred_years=False)
+    star_data, planets_data, planets_keys = posidonius.analysis.history.classify(n_particles, data)
 
     output_figure_dirname = os.path.dirname(filename)
     output_figure_filename = os.path.join(output_figure_dirname, os.path.splitext(os.path.basename(filename))[0] + "_timed_resonances.png")
@@ -66,8 +66,10 @@ if __name__ == "__main__":
     max_lengths = len(t[0])
 
     # If the user require more measurement than timestep available, we force to have nb_measurements equal the number of timestep
+    # Line 71, Leon: I changed the division to floor division, such that will be in int() date type for the following analysis
+    # , otherwise the code will have error.
     if (NB_MEASUREMENTS < max_lengths):
-        time_delay = max_lengths / NB_MEASUREMENTS
+        time_delay = max_lengths // NB_MEASUREMENTS
     else:
         time_delay = 1
 
@@ -106,7 +108,7 @@ if __name__ == "__main__":
         dynamic_order[planet_idx].append(order)
         time_order[planet_idx].append(t[planet_idx][0])
     ###
-    for instant_index in range(NB_LAST_POINTS,max_lengths,time_delay):
+    for instant_index in np.arange(NB_LAST_POINTS, max_lengths, int(time_delay)):
         # We display a progress bar of the computation
         # The extra spaces are to make sure that no old character from the previous line will appear
         sys.stdout.write("Progression %6.2f %% : %i / %i                   \r" % ((instant_index * 100. / float(max_lengths)), instant_index, max_lengths))
@@ -159,14 +161,14 @@ if __name__ == "__main__":
                 continue
 
             resonances = posidonius.analysis.resonances.get_possible_resonances(periodRatio_end, uncertainty=0.01 * float(UNCERTAINTY),
-                        denominator_limit=DENOMINATOR_LIMIT, numerator_limit=NUMERATOR_LIMIT, sampling=NUMBER_OF_VALUES)
+                                                                                denominator_limit=DENOMINATOR_LIMIT, numerator_limit=NUMERATOR_LIMIT, sampling=NUMBER_OF_VALUES)
 
             # For each resonance we check if this one exist between the two considered planets
             index = 0
             while (index < len(resonances)):
                 res = resonances[index]
                 is_resonance = posidonius.analysis.resonances.is_resonance(res, g_inner, n_inner, M_inner, g_outer, n_outer, M_outer,
-                              nb_points=NB_LAST_POINTS, angle_center_value=ANGLE_CENTER_VALUE, std_threshold=STD_THRESHOLD)
+                                                                           nb_points=NB_LAST_POINTS, angle_center_value=ANGLE_CENTER_VALUE, std_threshold=STD_THRESHOLD)
                 if (is_resonance):
                     isExtend = False # boolean that say if the current resonance is the extension of the last resonance listed for the inner planet
                     if (len(resonance_type[still_here_planets[inner]]) != 0):
@@ -298,7 +300,7 @@ if __name__ == "__main__":
 
     sys.stdout.write("Saving graphics                          \r")
     sys.stdout.flush()
-    plt.savefig(output_figure_filename)
+    plt.savefig(output_figure_filename, dpi=120)
     print("Output figure file written to: {}".format(output_figure_filename))
 
     #sys.stdout.write("Displaying graphics                          \n")
