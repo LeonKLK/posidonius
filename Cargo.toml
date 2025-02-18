@@ -40,6 +40,7 @@ serde-big-array = "0.5.1"
 
 [dev-dependencies]
 criterion = "0.5.*"
+pretty_assertions = "1.4"
 
 [[bench]]
 name = "simulation"
