@@ -1,8 +1,5 @@
-extern crate posidonius;
-extern crate serde;
 #[macro_use]
 extern crate serde_derive;
-extern crate serde_json;
 
 mod common;
 
@@ -10,9 +7,16 @@ mod common;
 extern crate criterion;
 
 use criterion::Criterion;
+use posidonius::constants::{DAY, TWO_PI};
 
 fn create_universe() -> posidonius::Universe {
-    let (_time_step, time_limit, initial_time, _historic_snapshot_period, _recovery_snapshot_period) = common::simulation_properties();
+    let (
+        _time_step,
+        time_limit,
+        initial_time,
+        _historic_snapshot_period,
+        _recovery_snapshot_period,
+    ) = common::simulation_properties();
     let consider_effects = posidonius::ConsiderEffects {
         tides: true,
         rotational_flattening: true,
@@ -33,11 +37,16 @@ fn create_universe() -> posidonius::Universe {
     let star_evolution = posidonius::EvolutionType::GalletBolmont2017(star_mass); // SolarLike Evolving dissipation (mass = 0.30 .. 1.40)
     //let star_evolution = posidonius::EvolutionType::LeconteChabrier2013; // Jupiter
     //let star_evolution = posidonius::EvolutionType::NonEvolving;
-    let star = common::stars::solar_like_with_disk(star_mass, star_evolution, general_relativity_implementation);
+    let star = common::stars::solar_like_with_disk(
+        star_mass,
+        star_evolution,
+        general_relativity_implementation,
+    );
 
-    let mut particles = vec![star.clone()];
+    let mut particles = vec![star];
     particles.extend(common::planets::basic_configuration(&star));
-    let mut universe = posidonius::Universe::new(initial_time, time_limit, particles, consider_effects);
+    let mut universe =
+        posidonius::Universe::new(initial_time, time_limit, particles, consider_effects);
     let current_time = 0.;
     // initialize_physical_values
     let evolution = true;
@@ -50,7 +59,13 @@ fn create_universe() -> posidonius::Universe {
 }
 
 fn create_kaula_universe() -> posidonius::Universe {
-    let (_time_step, time_limit, initial_time, _historic_snapshot_period, _recovery_snapshot_period) = common::simulation_properties();
+    let (
+        _time_step,
+        time_limit,
+        initial_time,
+        _historic_snapshot_period,
+        _recovery_snapshot_period,
+    ) = common::simulation_properties();
     let consider_effects = posidonius::ConsiderEffects {
         tides: true,
         rotational_flattening: true,
@@ -71,27 +86,45 @@ fn create_kaula_universe() -> posidonius::Universe {
     let star_evolution = posidonius::EvolutionType::GalletBolmont2017(star_mass); // SolarLike Evolving dissipation (mass = 0.30 .. 1.40)
     //let star_evolution = posidonius::EvolutionType::LeconteChabrier2013; // Jupiter
     //let star_evolution = posidonius::EvolutionType::NonEvolving;
-    let star = common::stars::solar_like_with_disk(star_mass, star_evolution, general_relativity_implementation);
+    let star = common::stars::solar_like_with_disk(
+        star_mass,
+        star_evolution,
+        general_relativity_implementation,
+    );
 
-    let mut particles = vec![star.clone()];
+    let mut particles = vec![star];
     particles.extend(common::planets::basic_configuration(&star));
     //////////////////////////////////////////////////////////////////////////////////
     // Disable all first or `check_uniform_viscosity_coefficient` will fail
     let disabled_tides = posidonius::Tides::new(posidonius::TidesEffect::Disabled);
-    let disabled_rotational_flattening = posidonius::RotationalFlattening::new(posidonius::RotationalFlatteningEffect::Disabled);
-    for particle in particles.iter_mut() {
+    let disabled_rotational_flattening =
+        posidonius::RotationalFlattening::new(posidonius::RotationalFlatteningEffect::Disabled);
+    for particle in &mut particles {
         particle.set_tides(disabled_tides);
         particle.set_rotational_flattening(disabled_rotational_flattening);
     }
     //////////////////////////////////////////////////////////////////////////////////
     // Load star data
     let star_file = "./input/love_numbers/Aurelie_Stellar/alpha0.51600_P1p2_Ek1p5em6.txt";
-    let star_tidal_model_params = common::load_kaula_parameters(star_file).unwrap();
-    let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(posidonius::TidalModel::Kaula(star_tidal_model_params)));
+    let stellar_tide = true;
+    let spectrum_stellar_spin_period = 1.2 * DAY;
+    let spectrum_spin_rate = TWO_PI / spectrum_stellar_spin_period;
+    let star_tidal_model_params =
+        common::load_kaula_parameters(star_file, stellar_tide, spectrum_spin_rate).unwrap();
+    let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
+        posidonius::TidalModel::Kaula(star_tidal_model_params),
+    ));
     // Load planet data
     let planet_file = "./input/love_numbers/TRAPPIST-1_Earth-like/Results_Trappist1_b_Fe_90_Si_02_670K_freq_Imk2_posidonius.txt";
-    let planet_tidal_model_params = common::load_kaula_parameters(planet_file).unwrap();
-    let planet_tides = posidonius::Tides::new(posidonius::TidesEffect::OrbitingBody(posidonius::TidalModel::Kaula(planet_tidal_model_params)));
+    // If we are simulating stellar tide, then we need the value of the spectrum spin rate,
+    // which was an input value of stellar spin rate from the computation of the spectrum.
+    let stellar_tide = false;
+    let spectrum_spin_rate = 0.0;
+    let planet_tidal_model_params =
+        common::load_kaula_parameters(planet_file, stellar_tide, spectrum_spin_rate).unwrap();
+    let planet_tides = posidonius::Tides::new(posidonius::TidesEffect::OrbitingBody(
+        posidonius::TidalModel::Kaula(planet_tidal_model_params),
+    ));
     //
     if let Some((star, planets)) = particles.split_first_mut() {
         // Change from constant time lag to kaula:
@@ -101,7 +134,8 @@ fn create_kaula_universe() -> posidonius::Universe {
         }
     }
     //////////////////////////////////////////////////////////////////////////////////
-    let mut universe = posidonius::Universe::new(initial_time, time_limit, particles, consider_effects);
+    let mut universe =
+        posidonius::Universe::new(initial_time, time_limit, particles, consider_effects);
     let current_time = 0.;
     // initialize_physical_values
     let evolution = true;
@@ -113,7 +147,6 @@ fn create_kaula_universe() -> posidonius::Universe {
     universe
 }
 
-
 fn criterion_benchmark_universe(c: &mut Criterion) {
     let mut universe = create_universe();
     let mut kaula_universe = create_kaula_universe();
@@ -124,7 +157,9 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
     let accelerations = true;
     let current_time = 0.0;
 
-    c.bench_function("gravity_calculate_acceleration", |b| b.iter(|| universe.gravity_calculate_acceleration(ignore_gravity_terms)));
+    c.bench_function("gravity_calculate_acceleration", |b| {
+        b.iter(|| universe.gravity_calculate_acceleration(ignore_gravity_terms));
+    });
 
     let mut group = c.benchmark_group("calculate_additional_effects");
     universe.consider_effects = posidonius::ConsiderEffects {
@@ -135,8 +170,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: true,
         evolution: true,
     };
-    group.bench_function("all", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("all", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: true,
         rotational_flattening: false,
@@ -145,8 +190,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("constant_time_lag_tides", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("constant_time_lag_tides", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     kaula_universe.consider_effects = posidonius::ConsiderEffects {
         tides: true,
         rotational_flattening: false,
@@ -155,8 +210,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("kaula_tides", |b| b.iter(|| kaula_universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("kaula_tides", |b| {
+        b.iter(|| {
+            kaula_universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: true,
@@ -165,8 +230,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("rotational_flattening", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("rotational_flattening", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: false,
@@ -175,8 +250,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("general_relativity", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("general_relativity", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: false,
@@ -185,8 +270,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("disk", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("disk", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: false,
@@ -195,8 +290,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: true,
         evolution: false,
     };
-    group.bench_function("wind", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("wind", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: false,
@@ -205,8 +310,18 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: true,
     };
-    group.bench_function("evolution", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
-    
+    group.bench_function("evolution", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
+
     universe.consider_effects = posidonius::ConsiderEffects {
         tides: false,
         rotational_flattening: false,
@@ -215,7 +330,17 @@ fn criterion_benchmark_universe(c: &mut Criterion) {
         wind: false,
         evolution: false,
     };
-    group.bench_function("none", |b| b.iter(|| universe.calculate_additional_effects(current_time, evolution, dangular_momentum_dt_per_moment_of_inertia, accelerations, ignored_gravity_terms)));
+    group.bench_function("none", |b| {
+        b.iter(|| {
+            universe.calculate_additional_effects(
+                current_time,
+                evolution,
+                dangular_momentum_dt_per_moment_of_inertia,
+                accelerations,
+                ignored_gravity_terms,
+            );
+        });
+    });
 
     group.finish();
 }
