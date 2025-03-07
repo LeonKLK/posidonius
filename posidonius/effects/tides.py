@@ -73,7 +73,7 @@ class ConstantTimeLag(object):
             if key in self._data["ConstantTimeLag"]:
                 self._data["ConstantTimeLag"][key] = float(value)
             else:
-                print("Ignored parameter: {}".format(key))
+                print("CTL: Ignored parameter: {}".format(key))
 
     def get(self):
         if type(self._data) == str:
@@ -93,7 +93,7 @@ class CreepCoplanar(object):
             if key in self._data["CreepCoplanar"]:
                 self._data["CreepCoplanar"][key] = float(value)
             else:
-                print("Ignored parameter: {}".format(key))
+                print("Creep: Ignored parameter: {}".format(key))
 
     def get(self):
         if type(self._data) == str:
@@ -108,32 +108,22 @@ class Kaula(object):
 
         self._data = {
             "Kaula": {
-                "love_number_excitation_frequency": [0.] * 1024,
-                "imaginary_part_love_number": [0.] * 1024,
-                "real_part_love_number": [0.] * 1024,
-                "num_datapoints": 0.0,
-                "stellar_tide": False,
-                "spectrum_spin_rate": 0.0,
-                "kaula_tidal_force": Axes( 0.0, 0.0, 0.0).get(),
+                "love_numbers": {
+                    "spectrum_excitation_frequency": [0.] * 1024,
+                    "spectrum_real_part": [0.] * 1024,
+                    "spectrum_imaginary_part": [0.] * 1024,
+                    # stellar_spectrum_spin_rate field only exists for stellar tide.
+                },
             },
         }
         # Update default values, ignore non-recognised keys
-        for key, value in six.iteritems(input_parameters):
-            if key in self._data["Kaula"]:
-                if key == "stellar_tide":
-                    # Ensure the value is strictly a boolean
-                    if isinstance(value, bool):
-                        self._data["Kaula"][key] = value
-                    else:
-                        raise ValueError(f"Invalid value for stellar_tide: {value}. Expected a boolean (True or False).")
-                elif isinstance(value, (tuple, list)):
-                    # Convert lists or tuples to a list of floats
-                    self._data["Kaula"][key] = [float(v) for v in value]
-                else:
-                    # Convert single values to float
-                    self._data["Kaula"][key] = float(value)
+        for key, value in six.iteritems(input_parameters["love_numbers"]):
+            if isinstance(value, (tuple, list)):
+                # Convert lists or tuples to a list of floats
+                self._data["Kaula"]["love_numbers"][key] = [float(v) for v in value]
             else:
-                print(f"Ignored parameter: {key}")
+                # Convert single values to float
+                self._data["Kaula"]["love_numbers"][key] = float(value)
 
         # print("Output parameters:", self._data["Kaula"])
         # sys.exit("Program terminated after printing input parameters.")

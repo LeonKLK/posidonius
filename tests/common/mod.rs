@@ -1,30 +1,42 @@
-pub mod stars;
+pub mod checks;
 pub mod planets;
+pub mod stars;
+pub mod tools;
 pub mod universe;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::{BufReader, BufRead};
+use std::io::{BufRead, BufReader};
 
-#[allow(dead_code)]
+use posidonius::LoveNumber;
+
 pub fn simulation_properties() -> (f64, f64, f64, f64, f64) {
     let time_step: f64 = 0.08; // in days
-    let time_limit: f64 = time_step*200.; // days
-    let initial_time: f64 = 1.6e8*365.25; // time [days] where simulation starts
-    let historic_snapshot_period: f64 = 100.*365.25; // days
-    let recovery_snapshot_period: f64 = 10.*historic_snapshot_period; // days
-    (time_step, time_limit, initial_time, historic_snapshot_period, recovery_snapshot_period)
+    let time_limit: f64 = time_step * 200.; // days
+    let initial_time: f64 = 1.6e8 * 365.25; // time [days] where simulation starts
+    let historic_snapshot_period: f64 = 100. * 365.25; // days
+    let recovery_snapshot_period: f64 = 10. * historic_snapshot_period; // days
+    (
+        time_step,
+        time_limit,
+        initial_time,
+        historic_snapshot_period,
+        recovery_snapshot_period,
+    )
 }
 
-#[allow(dead_code)]
 pub fn get_data_dirname(test_name: &String) -> (String, String) {
-    let rust_data_dirname = format!("tests/data/{0}/", test_name);
-    let python_data_dirname = format!("posidonius/tests/data/{0}/", test_name);
+    let rust_data_dirname = format!("tests/data/{test_name}/");
+    let python_data_dirname = format!("posidonius/tests/data/{test_name}/");
     (rust_data_dirname, python_data_dirname)
 }
 
 #[allow(dead_code)]
-pub fn load_kaula_parameters(file_path: &str, stellar_tide:bool, spectrum_spin_rate: f64) -> Result<posidonius::KaulaParameters, Box<dyn Error>> {
+pub fn load_kaula_parameters(
+    file_path: &str,
+    stellar_tide: bool,
+    spectrum_spin_rate: f64,
+) -> Result<posidonius::KaulaParameters, Box<dyn Error>> {
     // Open the file
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
@@ -47,9 +59,9 @@ pub fn load_kaula_parameters(file_path: &str, stellar_tide:bool, spectrum_spin_r
 
         // Ensure we have at least 3 columns
         if parts.len() >= 3 {
-            w_lm.push(parts[0].parse()?);    // Column 0
-            im_k2.push(parts[1].parse()?);  // Column 1
-            re_k2.push(parts[2].parse()?);  // Column 2
+            w_lm.push(parts[0].parse()?); // Column 0
+            im_k2.push(parts[1].parse()?); // Column 1
+            re_k2.push(parts[2].parse()?); // Column 2
         }
     }
 
@@ -62,12 +74,10 @@ pub fn load_kaula_parameters(file_path: &str, stellar_tide:bool, spectrum_spin_r
     // Get the number of available data points
     let num_datapoints = w_lm.len();
 
-    if num_datapoints > expected_size {
-        panic!(
-            "Data size exceeds expected size: num_datapoints ({}) > expected_size ({})",
-            num_datapoints, expected_size
-        );
-    }
+    assert!(
+        (num_datapoints <= expected_size),
+        "Data size exceeds expected size: num_datapoints ({num_datapoints}) > expected_size ({expected_size})"
+    );
 
     // Extend w_lm, im_k2, and re_k2 to expected_size by repeating the last element if needed
     if num_datapoints < expected_size {
@@ -90,15 +100,22 @@ pub fn load_kaula_parameters(file_path: &str, stellar_tide:bool, spectrum_spin_r
     real_part_love_number.copy_from_slice(&re_k2[..expected_size]);
     imaginary_part_love_number.copy_from_slice(&im_k2[..expected_size]);
 
+    let stellar_spectrum_spin_rate = if stellar_tide {
+        // Specified the initial spin rate of the star (stellar tide specific)
+        Some(spectrum_spin_rate)
+    } else {
+        None
+    };
+
     // Build and return the KaulaParameters struct
     Ok(posidonius::KaulaParameters {
-        love_number_excitation_frequency,
-        real_part_love_number,
-        imaginary_part_love_number,
-        num_datapoints: num_datapoints as f64,
-        stellar_tide, // Specified the type of tides
-        spectrum_spin_rate, // Specified the initial spin rate of the star (stellar tide specific)
+        love_numbers: LoveNumber::new_from(
+            love_number_excitation_frequency,
+            real_part_love_number,
+            imaginary_part_love_number,
+            stellar_spectrum_spin_rate,
+        ),
         polynomials: posidonius::Polynomials::new(),
-        kaula_tidal_force: posidonius::Axes { x: 0.0, y: 0.0, z: 0.0 },
+        tidal_force: posidonius::Axes::new(),
     })
 }

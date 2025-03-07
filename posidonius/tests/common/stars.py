@@ -248,19 +248,29 @@ def solar_like_for_kaula_1(star_mass, position, velocity, general_relativity_imp
     ReK2_star   = star_data[0:,2]
     size_star   = np.size(w_lm_star)
 
+    star_kaula_tidal_parameters_love_numbers = {
+        "love_numbers": {
+            "spectrum_excitation_frequency": w_lm_star.tolist(),
+            "spectrum_real_part": ReK2_star.tolist(),
+            "spectrum_imaginary_part": ImK2_star.tolist(),
+            "stellar_spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period
+        },
+    }
+
     expected_size = 1024
-    if size_star != expected_size or size_star <= expected_size:
+    if size_star < expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
         star_kaula_tidal_parameters_love_numbers = {
-            "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
-            "imaginary_part_love_number": ImK2_star.tolist(),
-            "real_part_love_number": ReK2_star.tolist(),
-            "num_datapoints": size_star,
-            "stellar_tide": True,
-            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
+            "love_numbers": {
+                "spectrum_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
+                "spectrum_real_part": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
+                "spectrum_imaginary_part": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
+                "stellar_spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period
+            },
         }
-
+    elif size_star == expected_size:
+        print("Data size equals expected size.")
     else:
         raise Exception("Data size exceeds expected size.")
 
@@ -311,19 +321,29 @@ def solar_like_for_kaula_2(star_mass, position, velocity, general_relativity_imp
     ReK2_star   = star_data[0:,2]
     size_star   = np.size(w_lm_star)
 
+    star_kaula_tidal_parameters_love_numbers = {
+        "love_numbers": {
+            "spectrum_excitation_frequency": w_lm_star.tolist(),
+            "spectrum_real_part": ReK2_star.tolist(),
+            "spectrum_imaginary_part": ImK2_star.tolist(),
+            "stellar_spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period
+        },
+    }
+
     expected_size = 1024
-    if size_star != expected_size or size_star <= expected_size:
+    if size_star < expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
         star_kaula_tidal_parameters_love_numbers = {
-            "love_number_excitation_frequency": w_lm_star.tolist(), #syntaxe tab [[32]32]
-            "imaginary_part_love_number": ImK2_star.tolist(),
-            "real_part_love_number": ReK2_star.tolist(),
-            "num_datapoints": size_star,
-            "stellar_tide": True,
-            "spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period,
+            "love_numbers": {
+                "spectrum_excitation_frequency": w_lm_star.tolist() + [w_lm_star[-1]] * (expected_size - len(w_lm_star)),
+                "spectrum_real_part": ReK2_star.tolist() + [ReK2_star[-1]] * (expected_size - len(ReK2_star)),
+                "spectrum_imaginary_part": ImK2_star.tolist() + [ImK2_star[-1]] * (expected_size - len(ImK2_star)),
+                "stellar_spectrum_spin_rate": posidonius.constants.TWO_PI / spectrum_stellar_spin_period
+            },
         }
-
+    elif size_star == expected_size:
+        print("Data size equals expected size.")
     else:
         raise Exception("Data size exceeds expected size.")
 

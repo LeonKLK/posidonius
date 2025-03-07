@@ -248,19 +248,29 @@ def trappist1_h_like(mass, position, velocity, spin, evolution):
     ReK2_planet = planet_data[0:,2]
     size_planet = np.size(w_lm_planet)
 
+    planet_kaula_tidal_parameters_love_numbers = {
+        "love_numbers": {
+            "spectrum_excitation_frequency": w_lm_planet.tolist(),
+            "spectrum_real_part": ReK2_planet.tolist(),
+            "spectrum_imaginary_part": ImK2_planet.tolist(),
+            # No stellar_spectrum_spin_rate for planetary tides
+        },
+    }
+
     expected_size = 1024
-    if size_planet != expected_size or size_planet <= expected_size:
+    if size_planet < expected_size:
         warnings.warn("Size mismatch: This should not happen, but continuing with code execution.")
 
         planet_kaula_tidal_parameters_love_numbers = {
-            "love_number_excitation_frequency": w_lm_planet.tolist() + [w_lm_planet[-1]] * (expected_size - len(w_lm_planet)),
-            "imaginary_part_love_number": ImK2_planet.tolist() + [ImK2_planet[-1]] * (expected_size - len(ImK2_planet)),
-            "real_part_love_number": ReK2_planet.tolist() + [ReK2_planet[-1]] * (expected_size - len(ReK2_planet)),
-            "num_datapoints": float(expected_size),
-            "stellar_tide": False,
-            "spectrum_spin_rate": 0.0,
+            "love_numbers": {
+                "spectrum_excitation_frequency": w_lm_planet.tolist() + [w_lm_planet[-1]] * (expected_size - len(w_lm_planet)),
+                "spectrum_real_part": ReK2_planet.tolist() + [ReK2_planet[-1]] * (expected_size - len(ReK2_planet)),
+                "spectrum_imaginary_part": ImK2_planet.tolist() + [ImK2_planet[-1]] * (expected_size - len(ImK2_planet)),
+                # No stellar_spectrum_spin_rate for planetary tides
+            },
         }
-
+    elif size_planet == expected_size:
+        print("Data size equals expected size.")
     else:
         raise Exception("Data size exceeds expected size.")
 
