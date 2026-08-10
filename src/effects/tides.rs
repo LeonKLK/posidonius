@@ -48,7 +48,8 @@ use serde::{Deserialize, Serialize};
 //    Discussion with Tim: Binary Tree data structure or read only certain columns.
 //
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Default)]
+#[serde(default)]
 pub struct TidesParticleInternalParameters {
     pub distance: f64,
     pub radial_velocity: f64,

@@ -3,13 +3,13 @@
 Pre-existing bugs found in the tidal-effect code. All verified against commit
 `491c643` ("cleanup, refactor, optimise (#3)").
 
-Status: **documented, not yet fixed** (2026-08-10).
+Status (2026-08-10):
 
-| # | Bug | Affected configuration | Severity |
-|---|-----|------------------------|----------|
-| 1 | Love-number evolution is a silent no-op | LeconteChabrier2013 + CTL on the same body | Low (unused config) |
-| 2 | Asymmetric HashMap key in dynamical-tide override removal | Orbiting body with BM2016/GB2017/LC2013(true) + CTL | Latent (unused config) |
-| 3 | Kaula stellar torque uses only the last planet's force | Kaula star (CentralBody) + 2 or more planets | **High** for multi-planet Kaula runs |
+| # | Bug | Affected configuration | Status |
+|---|-----|------------------------|--------|
+| 1 | Love-number evolution is a silent no-op | LeconteChabrier2013 + CTL on the same body | **Open** (low priority, unused config) |
+| 2 | Asymmetric HashMap key in dynamical-tide override removal | Orbiting body with BM2016/GB2017/LC2013(true) + CTL | **Fixed** in the tidal restructure (remove key now matches the set key) |
+| 3 | Kaula stellar torque uses only the last planet's force | Kaula star (CentralBody) + 2 or more planets | **Fixed** in the tidal restructure (stellar secular force stored per companion; order-invariance covered by a regression test) |
 
 ---
 

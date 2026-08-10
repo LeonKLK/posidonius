@@ -153,6 +153,31 @@ class Particle(object):
     def set_evolution(self, evolution):
         self._data["evolution"] = evolution.get()
         self._evolution = evolution
+        self._check_tides_evolution_consistency()
+
+    def _check_tides_evolution_consistency(self):
+        # The CTL dynamical tide needs an evolution model that provides the
+        # frequency-averaged inverse tidal quality factor (1/Q); with any
+        # other evolution model a body in "Dynamical" composition would not
+        # dissipate at all.
+        effect = self._data.get("tides", "Disabled")
+        if not isinstance(effect, dict):
+            return
+        effect = effect.get("effect", "Disabled")
+        if not isinstance(effect, dict):
+            return
+        tidal_model = list(effect.values())[0]
+        if not isinstance(tidal_model, dict) or "ConstantTimeLag" not in tidal_model:
+            return
+        tide_composition = tidal_model["ConstantTimeLag"].get("tide_composition", "Both")
+        evolution = self._data.get("evolution", "NonEvolving")
+        provides_inverse_tidal_q = isinstance(evolution, dict) and (
+            "BolmontMathis2016" in evolution
+            or "GalletBolmont2017" in evolution
+            or evolution.get("LeconteChabrier2013") is True
+        )
+        if tide_composition == "Dynamical" and not provides_inverse_tidal_q:
+            print("[WARNING] Particle has a ConstantTimeLag tide with 'Dynamical' composition but its evolution model provides no 1/Q (expected BolmontMathis2016, GalletBolmont2017 or LeconteChabrier2013 with dissipation of dynamical tides): the body will not dissipate tidal energy.")
 
     def set_reference(self, reference):
         self._data["reference"] = reference.get()

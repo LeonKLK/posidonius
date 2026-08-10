@@ -14,12 +14,14 @@ class Tides(object):
                     "lag_angle": 0.0,
                     "orthogonal_component_of_the_tidal_force_due_to_planetary_tide": 0.0,
                     "orthogonal_component_of_the_tidal_force_due_to_stellar_tide": 0.0,
-                    "radial_component_of_the_tidal_force": 0.0,
+                    "radial_component_of_the_tidal_force_due_to_stellar_tide": 0.0,
+                    "radial_component_of_the_tidal_force_due_to_planetary_tide": 0.0,
                     "radial_component_of_the_tidal_force_dissipative_part_when_star_as_point_mass": 0.0,
                     "radial_velocity": 0.0,
                     "scalar_product_of_vector_position_with_planetary_spin": 0.0,
                     "scalar_product_of_vector_position_with_stellar_spin": 0.0,
                     "scaled_dissipation_factor": 0.0,
+                    "stellar_tide_secular_force": Axes(0.0, 0.0, 0.0).get(),
                     "shape": Axes(0.0, 0.0, 0.0).get(),
                 },
                 "output": {
@@ -60,17 +62,31 @@ class CentralBody(Tides):
         super(CentralBody, self).__init__("CentralBody", tidal_model=tidal_model)
 
 class ConstantTimeLag(object):
+    TIDE_COMPOSITIONS = ("Equilibrium", "Dynamical", "Both", )
+
     def __init__(self, input_parameters):
         self._data = {
             "ConstantTimeLag": {
                 "dissipation_factor_scale": 0.0,
                 "dissipation_factor": 0.0,
                 "love_number": 0.0,
+                # Equilibrium: only the equilibrium tide (sigma).
+                # Dynamical: only the frequency-averaged dynamical tide
+                #   (requires an evolution model providing 1/Q, i.e.
+                #   BolmontMathis2016, GalletBolmont2017 or
+                #   LeconteChabrier2013 with dissipation of dynamical tides).
+                # Both: dynamical tide added on top of the equilibrium tide
+                #   when excited (historical behavior, default).
+                "tide_composition": "Both",
             },
         }
         # Update default values, ignore non-recognised keys
         for key, value in six.iteritems(input_parameters):
-            if key in self._data["ConstantTimeLag"]:
+            if key == "tide_composition":
+                if value not in self.TIDE_COMPOSITIONS:
+                    raise Exception("Unknown tide_composition '{}' (expected one of {})".format(value, ", ".join(self.TIDE_COMPOSITIONS)))
+                self._data["ConstantTimeLag"][key] = value
+            elif key in self._data["ConstantTimeLag"]:
                 self._data["ConstantTimeLag"][key] = float(value)
             else:
                 print("CTL: Ignored parameter: {}".format(key))
