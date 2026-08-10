@@ -97,7 +97,6 @@ impl Axes {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

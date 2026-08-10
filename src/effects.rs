@@ -16,6 +16,6 @@ pub use rotational_flattening::{
 };
 pub use tides::{
     ConstantTimeLagParameters, CreepCoplanarParameters, KaulaParameters, Polynomials, TidalModel,
-    Tides, TidesEffect,
+    TideComposition, Tides, TidesEffect,
 };
 pub use wind::{Wind, WindEffect};

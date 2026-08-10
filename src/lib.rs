@@ -12,8 +12,8 @@ pub use effects::{
     ConstantTimeLagParameters, CreepCoplanarParameters, Disk, DiskEffect, DiskProperties,
     EvolutionType, Evolver, GeneralRelativity, GeneralRelativityEffect,
     GeneralRelativityImplementation, KaulaParameters, OblateSpheroidParameters, Polynomials,
-    RotationalFlattening, RotationalFlatteningEffect, RotationalFlatteningModel, TidalModel, Tides,
-    TidesEffect, Wind, WindEffect,
+    RotationalFlattening, RotationalFlatteningEffect, RotationalFlatteningModel, TidalModel,
+    TideComposition, Tides, TidesEffect, Wind, WindEffect,
 };
 pub use integrator::*;
 pub use particles::{Axes, ConsiderEffects, IgnoreGravityTerms, Particle, Reference, Universe};

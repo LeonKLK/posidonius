@@ -171,7 +171,6 @@ pub struct AlternativeCoordinates {
     acceleration: Axes,
 }
 
-
 impl WHFast {
     pub fn new(
         time_step: f64,

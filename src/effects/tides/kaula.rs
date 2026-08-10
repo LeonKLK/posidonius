@@ -138,7 +138,19 @@ fn calculate_tidal_force_component(
         radial_component_secular,
     );
 
-    particle.tides.get_kaula_mut().tidal_force = secular_projection;
+    if central_body {
+        // Stellar tide: store the secular force per companion (here
+        // `tidal_host_particle` is the companion raising the tide in the
+        // star), so that the stellar torque later uses each companion's own
+        // force instead of a single shared slot.
+        tidal_host_particle
+            .tides
+            .parameters
+            .internal
+            .stellar_tide_secular_force = secular_projection;
+    } else {
+        particle.tides.get_kaula_mut().tidal_force = secular_projection;
+    }
 
     components
 }
@@ -236,16 +248,12 @@ fn cartesian_projection_of_spherical_coordinates(
     };
 
     Axes::from(
-        radial_component * sin_theta * cos_phi
-        + normal_component * cos_theta * cos_phi
-        - orthogonal_component * sin_phi,
-
+        radial_component * sin_theta * cos_phi + normal_component * cos_theta * cos_phi
+            - orthogonal_component * sin_phi,
         radial_component * sin_theta * sin_phi
-        + normal_component * cos_theta * sin_phi
-        + orthogonal_component * cos_phi,
-
-        radial_component * cos_theta
-        - normal_component * sin_theta
+            + normal_component * cos_theta * sin_phi
+            + orthogonal_component * cos_phi,
+        radial_component * cos_theta - normal_component * sin_theta,
     )
 }
 
@@ -265,8 +273,14 @@ pub fn calculate_torque_due_to_tides(
             // additive inversion of positions if the host particle is the central body
             position.negate();
         }
-        // If this is the central body, take the kaula tidal force from the tidal host particle
-        tidal_host_particle.tides.get_kaula().tidal_force
+        // Stellar tide: take the per-companion secular force stored on the
+        // companion (`particle` here is the companion whose tide-raising
+        // force torques the star).
+        particle
+            .tides
+            .parameters
+            .internal
+            .stellar_tide_secular_force
     } else {
         // If it is not the central body, take the kaula tidal froce from the other particle
         particle.tides.get_kaula().tidal_force

@@ -75,6 +75,7 @@ fn ctl_star_params() -> constant_time_lag::ConstantTimeLagParameters {
         dissipation_factor: 4.992 * 3.845764e-2,
         dissipation_factor_scale: 1.0,
         love_number: 0.03,
+        tide_composition: Default::default(),
     }
 }
 
@@ -83,6 +84,7 @@ fn ctl_planet_params() -> constant_time_lag::ConstantTimeLagParameters {
         dissipation_factor: 2.006 * 3.845764e4,
         dissipation_factor_scale: 1.0,
         love_number: 0.305,
+        tide_composition: Default::default(),
     }
 }
 
@@ -119,13 +121,11 @@ fn make_planet(effect: TidesEffect, id: usize, semi_major_axis: f64) -> Particle
     planet.id = id;
     planet.tides = Tides::new(effect);
     planet.evolution = EvolutionType::NonEvolving;
-    planet.heliocentric_distance = sqrt!(
-        position.x * position.x + position.y * position.y + position.z * position.z
-    );
-    planet.heliocentric_radial_velocity = (position.x * velocity.x
-        + position.y * velocity.y
-        + position.z * velocity.z)
-        / planet.heliocentric_distance;
+    planet.heliocentric_distance =
+        sqrt!(position.x * position.x + position.y * position.y + position.z * position.z);
+    planet.heliocentric_radial_velocity =
+        (position.x * velocity.x + position.y * velocity.y + position.z * velocity.z)
+            / planet.heliocentric_distance;
     planet
 }
 
@@ -365,7 +365,11 @@ fn golden_ctl_star_ctl_planet_equilibrium() {
         0.05,
     )];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_CTL_STAR_CTL_PLANET_EQUILIBRIUM, "ctl_star_ctl_planet_equilibrium");
+    assert_all_close(
+        &output,
+        GOLDEN_CTL_STAR_CTL_PLANET_EQUILIBRIUM,
+        "ctl_star_ctl_planet_equilibrium",
+    );
 }
 
 #[test]
@@ -386,7 +390,11 @@ fn golden_ctl_star_ctl_planet_dynamical() {
         0.05,
     )];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_CTL_STAR_CTL_PLANET_DYNAMICAL, "ctl_star_ctl_planet_dynamical");
+    assert_all_close(
+        &output,
+        GOLDEN_CTL_STAR_CTL_PLANET_DYNAMICAL,
+        "ctl_star_ctl_planet_dynamical",
+    );
 }
 
 #[test]
@@ -394,9 +402,8 @@ fn golden_kaula_star_ctl_planet_oblique() {
     // Mixed configuration: Kaula stellar tide (3D branch via tilted spin),
     // CTL planetary tide.
     let spin = star_spin_tilted();
-    let stellar_spectrum_spin_rate = sqrt!(
-        spin.x * spin.x + spin.y * spin.y + spin.z * spin.z
-    ) / DAY; // rad/s, matching the runtime unit used by kaula.rs
+    let stellar_spectrum_spin_rate =
+        sqrt!(spin.x * spin.x + spin.y * spin.y + spin.z * spin.z) / DAY; // rad/s, matching the runtime unit used by kaula.rs
     let mut star = make_star(
         TidesEffect::CentralBody(TidalModel::Kaula(kaula_params(Some(
             stellar_spectrum_spin_rate,
@@ -410,7 +417,11 @@ fn golden_kaula_star_ctl_planet_oblique() {
         0.05,
     )];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_KAULA_STAR_CTL_PLANET_OBLIQUE, "kaula_star_ctl_planet_oblique");
+    assert_all_close(
+        &output,
+        GOLDEN_KAULA_STAR_CTL_PLANET_OBLIQUE,
+        "kaula_star_ctl_planet_oblique",
+    );
 }
 
 #[test]
@@ -431,7 +442,11 @@ fn golden_kaula_star_kaula_planet_aligned() {
         0.05,
     )];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_KAULA_STAR_KAULA_PLANET_ALIGNED, "kaula_star_kaula_planet_aligned");
+    assert_all_close(
+        &output,
+        GOLDEN_KAULA_STAR_KAULA_PLANET_ALIGNED,
+        "kaula_star_kaula_planet_aligned",
+    );
 }
 
 #[test]
@@ -454,7 +469,231 @@ fn golden_ctl_star_two_ctl_planets() {
         ),
     ];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_CTL_STAR_TWO_CTL_PLANETS, "ctl_star_two_ctl_planets");
+    assert_all_close(
+        &output,
+        GOLDEN_CTL_STAR_TWO_CTL_PLANETS,
+        "ctl_star_two_ctl_planets",
+    );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Behavior tests for capabilities introduced by the restructure
+////////////////////////////////////////////////////////////////////////////////
+
+// A planet with tides fully disabled must still raise a tide in a CTL star,
+// and the result must match the historical workaround (an OrbitingBody with
+// zeroed CTL parameters).
+#[test]
+fn disabled_planet_still_raises_ctl_stellar_tide() {
+    let zeroed_ctl = constant_time_lag::ConstantTimeLagParameters {
+        dissipation_factor: 0.,
+        dissipation_factor_scale: 0.,
+        love_number: 0.,
+        tide_composition: Default::default(),
+    };
+
+    let mut star_reference = make_star(
+        TidesEffect::CentralBody(TidalModel::ConstantTimeLag(ctl_star_params())),
+        star_spin_aligned(),
+        EvolutionType::NonEvolving,
+    );
+    let mut planets_reference = [make_planet(
+        TidesEffect::OrbitingBody(TidalModel::ConstantTimeLag(zeroed_ctl)),
+        1,
+        0.05,
+    )];
+    let reference = run_tidal_pipeline(&mut star_reference, &mut planets_reference);
+
+    let mut star = make_star(
+        TidesEffect::CentralBody(TidalModel::ConstantTimeLag(ctl_star_params())),
+        star_spin_aligned(),
+        EvolutionType::NonEvolving,
+    );
+    let mut planets = [make_planet(TidesEffect::Disabled, 1, 0.05)];
+    let observed = run_tidal_pipeline(&mut star, &mut planets);
+
+    // denergy_dt is only computed for orbiting bodies, so skip that slot
+    // (index 12: 6 star values + 6 planet acc/dangular values precede it).
+    for (i, (&o, &r)) in observed.iter().zip(reference.iter()).enumerate() {
+        if i == 12 {
+            continue;
+        }
+        let scale = abs!(r);
+        if scale < ABS_FLOOR {
+            assert!(
+                abs!(o) < ABS_FLOOR,
+                "element {i}: expected ~0 ({r:e}), got {o:e}"
+            );
+        } else {
+            let relative_difference = abs!(o - r) / scale;
+            assert!(
+                relative_difference < REL_TOLERANCE,
+                "element {i}: workaround {r:.17e}, disabled {o:.17e}"
+            );
+        }
+    }
+    // And the stellar tide must actually be present.
+    assert!(
+        abs!(observed[5]) > 0.,
+        "stellar torque should be nonzero with a tides-disabled planet"
+    );
+}
+
+// The stellar torque of a Kaula star with several planets must not depend on
+// the order of the planets in the particle array (regression test for the
+// single-slot secular-force storage).
+#[test]
+fn kaula_star_two_planets_stellar_torque_is_order_invariant() {
+    let build_star = || {
+        let spin = star_spin_aligned();
+        make_star(
+            TidesEffect::CentralBody(TidalModel::Kaula(kaula_params(Some(spin.z / DAY)))),
+            spin,
+            EvolutionType::NonEvolving,
+        )
+    };
+    let planet_a = || {
+        make_planet(
+            TidesEffect::OrbitingBody(TidalModel::ConstantTimeLag(ctl_planet_params())),
+            1,
+            0.05,
+        )
+    };
+    let planet_b = || {
+        make_planet(
+            TidesEffect::OrbitingBody(TidalModel::ConstantTimeLag(ctl_planet_params())),
+            2,
+            0.09,
+        )
+    };
+
+    let mut star_ab = build_star();
+    let mut planets_ab = [planet_a(), planet_b()];
+    let output_ab = run_tidal_pipeline(&mut star_ab, &mut planets_ab);
+
+    let mut star_ba = build_star();
+    let mut planets_ba = [planet_b(), planet_a()];
+    let output_ba = run_tidal_pipeline(&mut star_ba, &mut planets_ba);
+
+    // Star acceleration and torque (first 6 slots) must be identical
+    // regardless of planet ordering.
+    for i in 0..6 {
+        let (o, r) = (output_ab[i], output_ba[i]);
+        let scale = abs!(r);
+        if scale < ABS_FLOOR {
+            assert!(abs!(o) < ABS_FLOOR, "star slot {i}: {o:e} vs {r:e}");
+        } else {
+            assert!(
+                abs!(o - r) / scale < REL_TOLERANCE,
+                "star slot {i} depends on planet order: {o:.17e} vs {r:.17e}"
+            );
+        }
+    }
+    assert!(
+        abs!(output_ab[5]) > 0.,
+        "stellar torque should be nonzero in this configuration"
+    );
+}
+
+// The tide composition modes must decompose sigma as:
+// Both = Equilibrium + Dynamical (inside the excitation regime).
+#[test]
+fn tide_composition_modes_decompose_sigma() {
+    let run_with = |composition: constant_time_lag::TideComposition| {
+        let mut params = ctl_star_params();
+        params.tide_composition = composition;
+        let mut star = make_star(
+            TidesEffect::CentralBody(TidalModel::ConstantTimeLag(params)),
+            star_spin_aligned(),
+            EvolutionType::BolmontMathis2016(1.0),
+        );
+        star.tides.parameters.internal.lag_angle = 5.0e-7;
+        let mut planets = [make_planet(
+            TidesEffect::OrbitingBody(TidalModel::ConstantTimeLag(ctl_planet_params())),
+            1,
+            0.05,
+        )];
+        run_tidal_pipeline(&mut star, &mut planets)
+    };
+
+    let equilibrium = run_with(constant_time_lag::TideComposition::Equilibrium);
+    let dynamical = run_with(constant_time_lag::TideComposition::Dynamical);
+    let both = run_with(constant_time_lag::TideComposition::Both);
+
+    // Equilibrium mode: no sigma overrides in the map (13 base slots only).
+    assert_eq!(
+        equilibrium.len(),
+        13,
+        "equilibrium mode must not create dynamical sigma overrides"
+    );
+    // Dynamical and Both modes: one override each (key + value appended).
+    assert_eq!(dynamical.len(), 15);
+    assert_eq!(both.len(), 15);
+    let sigma_dynamical = dynamical[14];
+    let sigma_both = both[14];
+    let sigma_equilibrium =
+        ctl_star_params().dissipation_factor_scale * ctl_star_params().dissipation_factor;
+    let expected = sigma_dynamical + sigma_equilibrium;
+    assert!(
+        abs!(sigma_both - expected) / expected < REL_TOLERANCE,
+        "sigma(Both) = {sigma_both:e} should equal sigma(Dynamical) + sigma(Equilibrium) = {expected:e}"
+    );
+    // The equilibrium-mode stellar torque must match a NonEvolving star's
+    // (the evolution table must not leak dissipation into equilibrium mode).
+    let mut star = make_star(
+        TidesEffect::CentralBody(TidalModel::ConstantTimeLag(ctl_star_params())),
+        star_spin_aligned(),
+        EvolutionType::NonEvolving,
+    );
+    let mut planets = [make_planet(
+        TidesEffect::OrbitingBody(TidalModel::ConstantTimeLag(ctl_planet_params())),
+        1,
+        0.05,
+    )];
+    let non_evolving = run_tidal_pipeline(&mut star, &mut planets);
+    assert_all_close(&equilibrium, &non_evolving, "equilibrium_vs_non_evolving");
+}
+
+// A CTL star with a Kaula planet: previously the stellar tide silently
+// vanished (the CTL force computations were gated on the planet being a CTL
+// orbiting body). With the per-body dispatch both tides must be present.
+#[test]
+fn ctl_star_with_kaula_planet_keeps_stellar_tide() {
+    let mut star = make_star(
+        TidesEffect::CentralBody(TidalModel::ConstantTimeLag(ctl_star_params())),
+        star_spin_aligned(),
+        EvolutionType::NonEvolving,
+    );
+    let mut planets = [make_planet(
+        TidesEffect::OrbitingBody(TidalModel::Kaula(kaula_params(None))),
+        1,
+        0.05,
+    )];
+    let output = run_tidal_pipeline(&mut star, &mut planets);
+    assert!(
+        abs!(output[5]) > 0.,
+        "CTL stellar torque must be nonzero with a Kaula planet"
+    );
+    assert!(
+        abs!(
+            planets[0]
+                .tides
+                .parameters
+                .internal
+                .orthogonal_component_of_the_tidal_force_due_to_stellar_tide
+        ) > 0.,
+        "CTL stellar orthogonal component must be computed for a Kaula planet"
+    );
+    assert!(
+        abs!(
+            planets[0]
+                .tides
+                .parameters
+                .internal
+                .orthogonal_component_of_the_tidal_force_due_to_planetary_tide
+        ) > 0.,
+        "Kaula planetary tide must also be present"
+    );
 }
 
 #[test]
@@ -472,5 +711,9 @@ fn golden_disabled_model_star_ctl_planet() {
         0.05,
     )];
     let output = run_tidal_pipeline(&mut star, &mut planets);
-    assert_all_close(&output, GOLDEN_DISABLED_MODEL_STAR_CTL_PLANET, "disabled_model_star_ctl_planet");
+    assert_all_close(
+        &output,
+        GOLDEN_DISABLED_MODEL_STAR_CTL_PLANET,
+        "disabled_model_star_ctl_planet",
+    );
 }

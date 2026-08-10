@@ -282,6 +282,7 @@ pub fn solar_like(
         dissipation_factor: star_dissipation_factor,
         dissipation_factor_scale: star_dissipation_factor_scale,
         love_number: star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
         posidonius::TidalModel::ConstantTimeLag(star_tidal_model_params),
@@ -379,6 +380,7 @@ pub fn solar_like_with_disk(
         dissipation_factor: star_dissipation_factor,
         dissipation_factor_scale: star_dissipation_factor_scale,
         love_number: star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
         posidonius::TidalModel::ConstantTimeLag(star_tidal_model_params),
@@ -543,6 +545,7 @@ pub fn brown_dwarf(
         dissipation_factor: star_dissipation_factor,
         dissipation_factor_scale: star_dissipation_factor_scale,
         love_number: star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
         posidonius::TidalModel::ConstantTimeLag(star_tidal_model_params),
@@ -636,6 +639,7 @@ pub fn m_dwarf(
         dissipation_factor: star_dissipation_factor,
         dissipation_factor_scale: star_dissipation_factor_scale,
         love_number: star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
         posidonius::TidalModel::ConstantTimeLag(star_tidal_model_params),
@@ -718,6 +722,7 @@ pub fn solar_like_primary(
         dissipation_factor: primary_star_dissipation_factor,
         dissipation_factor_scale: primary_star_dissipation_factor_scale,
         love_number: primary_star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let primary_star_tides = posidonius::Tides::new(posidonius::TidesEffect::CentralBody(
         posidonius::TidalModel::ConstantTimeLag(primary_star_tidal_model_params),
@@ -807,6 +812,7 @@ pub fn solar_like_secondary(
         dissipation_factor: secondary_star_dissipation_factor,
         dissipation_factor_scale: secondary_star_dissipation_factor_scale,
         love_number: secondary_star_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let secondary_star_tides = posidonius::Tides::new(posidonius::TidesEffect::OrbitingBody(
         posidonius::TidalModel::ConstantTimeLag(secondary_star_tidal_model_params),

@@ -6,7 +6,7 @@ pub mod kaula;
 
 use crate::{Axes, Particle};
 pub use constant_time_lag::{
-    ConstantTimeLagParameters, calculate_orthogonal_component_of_the_tidal_force,
+    ConstantTimeLagParameters, TideComposition, calculate_orthogonal_component_of_the_tidal_force,
     calculate_pair_dependent_scaled_dissipation_factors,
     calculate_radial_component_of_the_tidal_force,
 };
@@ -58,8 +58,14 @@ pub struct TidesParticleInternalParameters {
     pub scalar_product_of_vector_position_with_planetary_spin: f64,
     pub orthogonal_component_of_the_tidal_force_due_to_stellar_tide: f64,
     pub orthogonal_component_of_the_tidal_force_due_to_planetary_tide: f64,
-    pub radial_component_of_the_tidal_force: f64,
+    pub radial_component_of_the_tidal_force_due_to_stellar_tide: f64,
+    pub radial_component_of_the_tidal_force_due_to_planetary_tide: f64,
     pub radial_component_of_the_tidal_force_dissipative_part_when_star_as_point_mass: f64, // Needed to compute denergy_dt
+    //
+    // Kaula specific: secular force of the tide raised in the star by this
+    // particle (force on the star), stored per particle so that the stellar
+    // torque uses each companion's own force.
+    pub stellar_tide_secular_force: Axes,
     //
     // Creep coplanar specific:
     pub shape: Axes,
@@ -177,9 +183,11 @@ impl Tides {
                     scalar_product_of_vector_position_with_planetary_spin: 0.,
                     orthogonal_component_of_the_tidal_force_due_to_stellar_tide: 0.,
                     orthogonal_component_of_the_tidal_force_due_to_planetary_tide: 0.,
-                    radial_component_of_the_tidal_force: 0.,
+                    radial_component_of_the_tidal_force_due_to_stellar_tide: 0.,
+                    radial_component_of_the_tidal_force_due_to_planetary_tide: 0.,
                     radial_component_of_the_tidal_force_dissipative_part_when_star_as_point_mass:
                         0.,
+                    stellar_tide_secular_force: Axes::new(),
                     shape: Axes::new(),
                     denergy_dt: 0., // Only for history output
                     lag_angle: 0.,  // It will be initialized the first time the evolver is called
@@ -236,25 +244,26 @@ pub fn initialize(
             .output
             .dangular_momentum_dt
             .zero();
+        // All particles are updated (not only OrbitingBody ones) so that the
+        // stellar tide raised by a companion remains well-defined even when
+        // that companion has its own tides disabled.
         for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
-            if let TidesEffect::OrbitingBody(_) = particle.tides.effect {
-                particle
-                    .tides
-                    .parameters
-                    .internal
-                    .scalar_product_of_vector_position_with_stellar_spin =
-                    host_particle.spin.dot(&particle.tides.coordinates.position);
+            particle
+                .tides
+                .parameters
+                .internal
+                .scalar_product_of_vector_position_with_stellar_spin =
+                host_particle.spin.dot(&particle.tides.coordinates.position);
 
-                particle
-                    .tides
-                    .parameters
-                    .internal
-                    .scalar_product_of_vector_position_with_planetary_spin =
-                    particle.spin.dot(&particle.tides.coordinates.position);
+            particle
+                .tides
+                .parameters
+                .internal
+                .scalar_product_of_vector_position_with_planetary_spin =
+                particle.spin.dot(&particle.tides.coordinates.position);
 
-                particle.tides.parameters.output.acceleration.zero();
-                particle.tides.parameters.output.dangular_momentum_dt.zero();
-            }
+            particle.tides.parameters.output.acceleration.zero();
+            particle.tides.parameters.output.dangular_momentum_dt.zero();
         }
     }
 }
@@ -270,31 +279,32 @@ pub fn inertial_to_heliocentric_coordinates(
         host_particle.tides.coordinates.velocity.zero();
         host_particle.tides.parameters.internal.distance = 0.;
         host_particle.tides.parameters.internal.radial_velocity = 0.;
+        // All particles are updated (not only OrbitingBody ones) so that the
+        // stellar tide raised by a companion remains well-defined even when
+        // that companion has its own tides disabled.
         for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
-            if let TidesEffect::OrbitingBody(_) = particle.tides.effect {
-                particle.tides.coordinates.position = particle.inertial_position;
-                particle
-                    .tides
-                    .coordinates
-                    .position
-                    .sub(&host_particle.inertial_position);
+            particle.tides.coordinates.position = particle.inertial_position;
+            particle
+                .tides
+                .coordinates
+                .position
+                .sub(&host_particle.inertial_position);
 
-                particle.tides.coordinates.velocity = particle.inertial_velocity;
-                particle
-                    .tides
-                    .coordinates
-                    .velocity
-                    .sub(&host_particle.inertial_velocity);
+            particle.tides.coordinates.velocity = particle.inertial_velocity;
+            particle
+                .tides
+                .coordinates
+                .velocity
+                .sub(&host_particle.inertial_velocity);
 
-                particle.tides.parameters.internal.distance =
-                    particle.tides.coordinates.position.norm();
-                particle.tides.parameters.internal.radial_velocity = particle
-                    .tides
-                    .coordinates
-                    .position
-                    .dot(&particle.tides.coordinates.velocity)
-                    / particle.tides.parameters.internal.distance;
-            }
+            particle.tides.parameters.internal.distance =
+                particle.tides.coordinates.position.norm();
+            particle.tides.parameters.internal.radial_velocity = particle
+                .tides
+                .coordinates
+                .position
+                .dot(&particle.tides.coordinates.velocity)
+                / particle.tides.parameters.internal.distance;
         }
     }
 }
@@ -310,14 +320,15 @@ pub fn copy_heliocentric_coordinates(
         host_particle.tides.parameters.internal.distance = host_particle.heliocentric_distance;
         host_particle.tides.parameters.internal.radial_velocity =
             host_particle.heliocentric_radial_velocity;
+        // All particles are updated (not only OrbitingBody ones) so that the
+        // stellar tide raised by a companion remains well-defined even when
+        // that companion has its own tides disabled.
         for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
-            if let TidesEffect::OrbitingBody(_) = particle.tides.effect {
-                particle.tides.coordinates.position = particle.heliocentric_position;
-                particle.tides.coordinates.velocity = particle.heliocentric_velocity;
-                particle.tides.parameters.internal.distance = particle.heliocentric_distance;
-                particle.tides.parameters.internal.radial_velocity =
-                    particle.heliocentric_radial_velocity;
-            }
+            particle.tides.coordinates.position = particle.heliocentric_position;
+            particle.tides.coordinates.velocity = particle.heliocentric_velocity;
+            particle.tides.parameters.internal.distance = particle.heliocentric_distance;
+            particle.tides.parameters.internal.radial_velocity =
+                particle.heliocentric_radial_velocity;
         }
     }
 }
@@ -453,45 +464,87 @@ pub fn calculate_tidal_acceleration(
     particles: &mut [Particle],
     more_particles: &mut [Particle],
 ) {
+    // Unified per-pair assembly: for each companion, the planetary-tide force
+    // is dispatched on the COMPANION's tidal model and the stellar-tide force
+    // on the HOST's tidal model, in a single convention (force acting on the
+    // companion). The host feels the Newton's-third-law reaction of the total.
+    // This allows any mixture of tidal models between the host and the
+    // orbiting bodies, including orbiting bodies with tides disabled.
     let mut sum_tidal_force = Axes::new();
 
-    let central_body = false;
     for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
-        if let TidesEffect::OrbitingBody(tidal_model) = &particle.tides.effect {
-            if matches!(tidal_model, TidalModel::DisabledModel) {
-                continue;
-            }
+        let mut pair_tidal_force = Axes::new();
 
-            let tidal_force = match tidal_model {
+        // Tide raised in the orbiting body by the host (planetary tide):
+        // dispatch on the orbiting body's tidal model.
+        if let TidesEffect::OrbitingBody(tidal_model) = &particle.tides.effect {
+            match tidal_model {
                 TidalModel::ConstantTimeLag(_) => {
-                    constant_time_lag::calculate_tidal_force(tidal_host_particle, particle)
+                    pair_tidal_force.add(&constant_time_lag::calculate_planetary_tidal_force(
+                        particle,
+                    ));
                 }
                 TidalModel::CreepCoplanar(_) => {
-                    creep_coplanar::calculate_tidal_force(tidal_host_particle, particle)
+                    pair_tidal_force.add(&creep_coplanar::calculate_tidal_force(
+                        tidal_host_particle,
+                        particle,
+                    ));
                 }
                 TidalModel::Kaula(_) => {
-                    kaula::calculate_tidal_force(tidal_host_particle, particle, central_body)
+                    let central_body = false;
+                    pair_tidal_force.add(&kaula::calculate_tidal_force(
+                        tidal_host_particle,
+                        particle,
+                        central_body,
+                    ));
                 }
-                TidalModel::DisabledModel => {
-                    continue;
-                }
-            };
-            let factor1 = 1. / particle.mass;
-            sum_tidal_force.add(&tidal_force);
-
-            // - Equation 19 from Bolmont et al. 2015 (first term)
-            particle.tides.parameters.output.acceleration = tidal_force;
-            particle.tides.parameters.output.acceleration.mul(factor1);
+                TidalModel::DisabledModel => {}
+            }
         }
+
+        // Tide raised in the host by this companion (stellar tide): dispatch
+        // on the host's tidal model. The companion only needs valid
+        // coordinates; its own tidal model is irrelevant here.
+        if let TidesEffect::CentralBody(tidal_model) = &tidal_host_particle.tides.effect {
+            if particle.tides.parameters.internal.distance > 0. {
+                match tidal_model {
+                    TidalModel::ConstantTimeLag(_) => {
+                        pair_tidal_force.add(&constant_time_lag::calculate_stellar_tidal_force(
+                            tidal_host_particle,
+                            particle,
+                        ));
+                    }
+                    TidalModel::Kaula(_) => {
+                        let central_body = true;
+                        // kaula::calculate_tidal_force with central_body=true
+                        // returns the force acting on the host; the reaction
+                        // acts on the companion.
+                        let mut stellar_tidal_force = kaula::calculate_tidal_force(
+                            particle,
+                            tidal_host_particle,
+                            central_body,
+                        );
+                        stellar_tidal_force.mul(-1.);
+                        pair_tidal_force.add(&stellar_tidal_force);
+                    }
+                    // The creep coplanar stellar tide acts through the torque
+                    // only (no stellar force contribution, as before).
+                    TidalModel::CreepCoplanar(_) => {}
+                    TidalModel::DisabledModel => {}
+                }
+            }
+        }
+
+        let factor1 = 1. / particle.mass;
+        sum_tidal_force.add(&pair_tidal_force);
+
+        // - Equation 19 from Bolmont et al. 2015 (first term)
+        particle.tides.parameters.output.acceleration = pair_tidal_force;
+        particle.tides.parameters.output.acceleration.mul(factor1);
     }
 
     // - Equation 19 from Bolmont et al. 2015 (second term)
-    //for particle in particles.iter_mut() {
-    //particle.tides.parameters.output.acceleration.x += factor2 * sum_tidal_force.x;
-    //particle.tides.parameters.output.acceleration.y += factor2 * sum_tidal_force.y;
-    //particle.tides.parameters.output.acceleration.z += factor2 * sum_tidal_force.z;
-    //}
-    // Instead of the previous code, keep star tidal acceleration separated:
+    // Keep star tidal acceleration separated (Newton's third law reaction):
     tidal_host_particle.tides.parameters.output.acceleration = sum_tidal_force;
     tidal_host_particle
         .tides
@@ -499,34 +552,4 @@ pub fn calculate_tidal_acceleration(
         .output
         .acceleration
         .mul(-1.0 / tidal_host_particle.mass);
-
-    //// TODO: Reconsider how to move this stellar tides calculation into calculate_tidal_force while allowing a mixture of tidal models
-    // Stellar tides begin
-    if matches!(
-        tidal_host_particle.tides.effect,
-        TidesEffect::CentralBody(TidalModel::Kaula(_))
-    ) {
-        let central_body = true;
-        for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
-            let mut tidal_force =
-                kaula::calculate_tidal_force(particle, tidal_host_particle, central_body);
-
-            let mut tidal_force_host = tidal_force;
-            tidal_force_host.mul(1. / tidal_host_particle.mass);
-            tidal_host_particle
-                .tides
-                .parameters
-                .output
-                .acceleration
-                .add(&tidal_force_host);
-
-            tidal_force.mul(-1. / particle.mass);
-            particle
-                .tides
-                .parameters
-                .output
-                .acceleration
-                .add(&tidal_force);
-        }
-    }
 }

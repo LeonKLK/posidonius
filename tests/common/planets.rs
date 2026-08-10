@@ -393,6 +393,7 @@ pub fn earth_like(
         dissipation_factor: planet_dissipation_factor,
         dissipation_factor_scale: planet_dissipation_factor_scale,
         love_number: planet_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let planet_tides = posidonius::Tides::new(posidonius::TidesEffect::OrbitingBody(
         posidonius::TidalModel::ConstantTimeLag(planet_tidal_model_params),
@@ -511,6 +512,7 @@ pub fn jupiter_like(
         dissipation_factor: planet_dissipation_factor,
         dissipation_factor_scale: planet_dissipation_factor_scale,
         love_number: planet_love_number,
+        tide_composition: posidonius::TideComposition::Both,
     };
     let planet_tides = posidonius::Tides::new(posidonius::TidesEffect::OrbitingBody(
         posidonius::TidalModel::ConstantTimeLag(planet_tidal_model_params),
