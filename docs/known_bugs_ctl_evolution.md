@@ -1,10 +1,15 @@
-# Known Bugs: CTL Tidal Model + Stellar/Planetary Evolution
+# Known Bugs: Tidal Models (CTL + Kaula) and Evolution
 
-Two pre-existing bugs found in the coupling between the Constant Time Lag (CTL)
-tidal model and the evolution models. Both verified against commit `491c643`
-("cleanup, refactor, optimise (#3)").
+Pre-existing bugs found in the tidal-effect code. All verified against commit
+`491c643` ("cleanup, refactor, optimise (#3)").
 
-Status: **documented, not yet fixed** (2026-08-08).
+Status: **documented, not yet fixed** (2026-08-10).
+
+| # | Bug | Affected configuration | Severity |
+|---|-----|------------------------|----------|
+| 1 | Love-number evolution is a silent no-op | LeconteChabrier2013 + CTL on the same body | Low (unused config) |
+| 2 | Asymmetric HashMap key in dynamical-tide override removal | Orbiting body with BM2016/GB2017/LC2013(true) + CTL | Latent (unused config) |
+| 3 | Kaula stellar torque uses only the last planet's force | Kaula star (CentralBody) + 2 or more planets | **High** for multi-planet Kaula runs |
 
 ---
 
@@ -188,6 +193,82 @@ after the transition that:
 - the map no longer contains key `planet.id * MAX_PARTICLES + star.id`, and
 - the star's key `star.id * MAX_PARTICLES + planet.id` is still present when the
   star remains in the dynamical regime.
+
+---
+
+## Bug 3 — Kaula stellar torque uses only the last planet's force (multi-planet)
+
+### Location
+- Storage slot (single, on the star): `src/effects/tides/kaula.rs:141`
+  (`particle.tides.get_kaula_mut().tidal_force = secular_projection;` inside
+  `calculate_tidal_force_component`)
+- Overwriting loop: `src/effects/tides.rs:503-529` (stellar-tide loop inside
+  `calculate_tidal_acceleration`, gated on the star being
+  `CentralBody(TidalModel::Kaula)`)
+- Corrupted consumer: `src/effects/tides.rs:347-365` (star branch of
+  `calculate_dangular_momentum_dt_due_to_tides`) →
+  `src/effects/tides/kaula.rs:253-288` (`calculate_torque_due_to_tides`,
+  `central_body == true` branch reads the star's single stored force at line 269)
+
+### Affected configuration
+- **Kaula stellar tide (`CentralBody(Kaula)`) with 2 or more planets.**
+- Single-planet systems are **exact** — the sum has one term and the stored
+  force belongs to that planet.
+- Independent of what tidal model the planets carry (CTL, Kaula, or none).
+
+### Root cause
+`KaulaParameters` has a single `tidal_force` field. The stellar acceleration
+loop iterates the planets in array order and, for each planet `i`, computes the
+correct stellar secular force `F_i` — but stores it in that one slot on the
+star, overwriting the previous iteration. After the loop the slot holds only
+`F_N`, the force due to the **last planet in the particle array**.
+
+The star-torque loop then iterates planets again and, for each planet, calls
+the Kaula torque function, which reads the star's single stored force:
+
+```text
+dL/dt (star) = - Σ_i  r_i × F_stored  =  - Σ_i  r_i × F_N     (WRONG)
+                                          correct: Σ_i r_i × F_i
+```
+
+Each planet contributes its own position vector `r_i`, but every cross product
+uses the last planet's force `F_N`. Only the `i = N` term is physically
+correct; the other `N-1` terms mix one planet's geometry with another planet's
+force amplitude.
+
+### Consequence
+- **Planetary orbits remain correct** — inside the stellar acceleration loop
+  each iteration applies its own `F_i` before the slot is overwritten.
+- **The star's spin evolution (`dangular_momentum_dt`) is wrong** in both
+  magnitude and potentially direction. Because the tidal force scales steeply
+  with distance, if the last planet in the array is close-in, the outer
+  planets' pseudo-torques are inflated by the inner planet's force amplitude.
+- The error **feeds back into the forces over time**: the stellar spin enters
+  the tidal excitation frequencies `w_2mpq = (2-2p+q)·n - m·Ω` used in the
+  love-number interpolation of subsequent timesteps.
+- Note: the same storage pattern on a Kaula *planet* is harmless — each planet
+  owns its own slot, written and read one-to-one.
+
+### Suggested fix
+Store the stellar secular force **per planet** instead of once on the star.
+Two natural options:
+1. Add a per-planet field in `particle.tides.parameters.internal` (mirroring
+   how CTL stores `orthogonal_component_of_the_tidal_force_due_to_stellar_tide`
+   per planet), and have the star-torque branch read the field from the
+   *planet* being iterated; or
+2. Compute the torque contribution directly inside the stellar acceleration
+   loop (`tides.rs:508-528`) where `F_i` is still in hand, accumulating
+   `Σ r_i × F_i` there, and skip the Kaula star branch in the torque loop.
+
+Option 2 fits naturally into the planned restructuring of the stellar-tide
+loop (decoupling stellar tide from the planet's tidal model).
+
+### Verification idea
+Two-planet system with a Kaula star: compute the stellar
+`dangular_momentum_dt` once with planets in order [A, B] and once with
+[B, A]. Currently the results differ (the stored force belongs to whichever
+planet comes last); after the fix they must be identical and equal to
+`-(r_A × F_A + r_B × F_B)`.
 
 ---
 
