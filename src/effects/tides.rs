@@ -1,5 +1,7 @@
 pub mod constant_time_lag;
 pub mod creep_coplanar;
+#[cfg(test)]
+mod golden_tests;
 pub mod kaula;
 
 use crate::{Axes, Particle};
