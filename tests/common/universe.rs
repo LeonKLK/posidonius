@@ -58,6 +58,10 @@ pub fn store_unless_files_exist<I: serde::ser::Serialize>(
 #[allow(dead_code)]
 pub fn assert_stored_positions(universe: &posidonius::Universe, dirname: &String) {
     let precision = 1.0e-14;
+    // POSIDONIUS_TEST_REPORT=1: print the largest absolute and relative deviation from the stored
+    // reference for each particle instead of asserting (used to judge whether a code change is at
+    // rounding level before regenerating references).
+    let report_only = std::env::var("POSIDONIUS_TEST_REPORT").is_ok();
     for (i, particle) in universe.particles[..universe.n_particles]
         .iter()
         .enumerate()
@@ -83,6 +87,36 @@ pub fn assert_stored_positions(universe: &posidonius::Universe, dirname: &String
                 .unwrap(),
             i
         );
+        if report_only {
+            let pairs = [
+                ("pos.x", particle.inertial_position.x, expected_particle.inertial_position.x),
+                ("pos.y", particle.inertial_position.y, expected_particle.inertial_position.y),
+                ("pos.z", particle.inertial_position.z, expected_particle.inertial_position.z),
+                ("vel.x", particle.inertial_velocity.x, expected_particle.inertial_velocity.x),
+                ("vel.y", particle.inertial_velocity.y, expected_particle.inertial_velocity.y),
+                ("vel.z", particle.inertial_velocity.z, expected_particle.inertial_velocity.z),
+                ("acc.x", particle.inertial_acceleration.x, expected_particle.inertial_acceleration.x),
+                ("acc.y", particle.inertial_acceleration.y, expected_particle.inertial_acceleration.y),
+                ("acc.z", particle.inertial_acceleration.z, expected_particle.inertial_acceleration.z),
+                ("spin.x", particle.spin.x, expected_particle.spin.x),
+                ("spin.y", particle.spin.y, expected_particle.spin.y),
+                ("spin.z", particle.spin.z, expected_particle.spin.z),
+            ];
+            let (mut worst, mut worst_abs, mut worst_rel) = ("", 0.0_f64, 0.0_f64);
+            for (name, got, expected) in pairs {
+                let abs = (got - expected).abs();
+                let rel = if expected != 0.0 { abs / expected.abs() } else { abs };
+                if abs > worst_abs {
+                    worst = name;
+                    worst_abs = abs;
+                    worst_rel = rel;
+                }
+            }
+            println!(
+                "TESTREPORT {dirname} particle {i}: max abs dev {worst_abs:.3e} ({worst}), rel {worst_rel:.3e}"
+            );
+            continue;
+        }
         assert_approx_eq!(
             particle.inertial_position.x,
             expected_particle.inertial_position.x,
