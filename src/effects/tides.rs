@@ -113,7 +113,18 @@ impl TidalModel {
                 central_body,
             ),
             TidalModel::Kaula(_) => {
-                kaula::calculate_torque_due_to_tides(tidal_host_particle, particle, central_body)
+                // The deformed body is the host for the stellar tide, the planet otherwise;
+                // the orbit is always the planet's.
+                let tidal_deformed_body = if central_body {
+                    tidal_host_particle
+                } else {
+                    particle
+                };
+                kaula::calculate_torque_due_to_tides(
+                    tidal_deformed_body,
+                    &kaula::Orbit::from_planet(particle),
+                    central_body,
+                )
             }
             TidalModel::DisabledModel => {
                 unreachable!();
@@ -468,7 +479,8 @@ pub fn calculate_tidal_acceleration(
                     creep_coplanar::calculate_tidal_force(tidal_host_particle, particle)
                 }
                 TidalModel::Kaula(_) => {
-                    kaula::calculate_tidal_force(tidal_host_particle, particle, central_body)
+                    // Planetary tide: the planet is deformed, the star perturbs.
+                    kaula::calculate_tidal_force(particle, tidal_host_particle, central_body)
                 }
                 TidalModel::DisabledModel => {
                     continue;
@@ -506,8 +518,9 @@ pub fn calculate_tidal_acceleration(
     ) {
         let central_body = true;
         for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
+            // Stellar tide: the star is deformed, the planet perturbs.
             let mut tidal_force =
-                kaula::calculate_tidal_force(particle, tidal_host_particle, central_body);
+                kaula::calculate_tidal_force(tidal_host_particle, particle, central_body);
 
             let mut tidal_force_host = tidal_force;
             tidal_force_host.mul(1. / tidal_host_particle.mass);

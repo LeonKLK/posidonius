@@ -1,33 +1,39 @@
 use crate::Particle;
 use crate::tools::KeplerianElements;
 
-use super::{alpha_pqkj, calculate_base_constant, select_eccentricty_order_q};
+use super::{Orbit, alpha_pqkj, calculate_base_constant, select_eccentricty_order_q};
 use itertools::izip;
 
+/// 3D kaula force components on `tidal_deformed_body` due to `tidal_perturber`.
+/// Roles: see `kaula.rs`. The orbit is always the planet's.
 pub fn calculate_3d_tidal_force_components(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     central_body: bool,
     keplerian_elements: &KeplerianElements,
 ) -> ((f64, f64, f64), (f64, f64, f64)) {
     let (orthogonal_component, orthogonal_component_secular) =
         calculate_orthogonal_component_of_the_tidal_force_3d(
-            tidal_host_particle,
-            particle,
+            tidal_deformed_body,
+            tidal_perturber,
+            orbit,
             keplerian_elements,
             central_body,
         );
     let (radial_component, radial_component_secular) =
         calculate_radial_component_of_the_tidal_force_3d(
-            tidal_host_particle,
-            particle,
+            tidal_deformed_body,
+            tidal_perturber,
+            orbit,
             keplerian_elements,
             central_body,
         );
     let (normal_component, normal_component_secular) =
         calculate_normal_component_of_the_tidal_force_3d(
-            tidal_host_particle,
-            particle,
+            tidal_deformed_body,
+            tidal_perturber,
+            orbit,
             keplerian_elements,
             central_body,
         );
@@ -100,12 +106,13 @@ fn compute_phase_beta(
 }
 
 fn calculate_normal_component_of_the_tidal_force_3d(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     keplerian_elements: &KeplerianElements,
-    central_body: bool,
+    _central_body: bool,
 ) -> (f64, f64) {
-    let kaula = particle.tides.get_kaula();
+    let kaula = tidal_deformed_body.tides.get_kaula();
 
     // Keplerian elements
     let (
@@ -341,21 +348,14 @@ fn calculate_normal_component_of_the_tidal_force_3d(
     let term_m2 = -(1. / 6.) * sum_over_p;
     let term_m2_s = -(1. / 6.) * sum_over_p_s;
 
-    let cste = if central_body {
-        calculate_base_constant(
-            tidal_host_particle,
-            particle,
-            tidal_host_particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    } else {
-        calculate_base_constant(
-            particle,
-            tidal_host_particle,
-            particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    };
+    // Prefactor with the deformed body's radius and the perturber's mass, whichever body is
+    // deformed (the 3D branches use the unsigned heliocentric distance for both tides).
+    let cste = calculate_base_constant(
+        tidal_deformed_body,
+        tidal_perturber,
+        orbit.heliocentric_distance,
+        semi_major_axis,
+    );
 
     let normal_force = cste * (term_m0 + term_m1 + term_m2);
     let normal_force_secular = cste * (term_m0_s + term_m1_s + term_m2_s);
@@ -402,12 +402,13 @@ fn compute_phase_alpha_4(
 
 // Ortho-radial (the e_{\varphi}) component of tidal force
 fn calculate_orthogonal_component_of_the_tidal_force_3d(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    _orbit: &Orbit,
     keplerian_elements: &KeplerianElements,
-    central_body: bool,
+    _central_body: bool,
 ) -> (f64, f64) {
-    let kaula = particle.tides.get_kaula();
+    let kaula = tidal_deformed_body.tides.get_kaula();
     // Keplerian elements
     let (
         semi_major_axis,
@@ -595,11 +596,8 @@ fn calculate_orthogonal_component_of_the_tidal_force_3d(
     let term_m2 = -5. / (48. * sqrt!(6_f64)) * sum_over_p;
     let term_m2_s = -5. / (48. * sqrt!(6_f64)) * sum_over_p_s;
 
-    let cste_3d = if central_body {
-        calculate_base_constant(tidal_host_particle, particle, 1.0, semi_major_axis)
-    } else {
-        calculate_base_constant(particle, tidal_host_particle, 1.0, semi_major_axis)
-    };
+    let cste_3d =
+        calculate_base_constant(tidal_deformed_body, tidal_perturber, 1.0, semi_major_axis);
 
     let orthogonal_force = cste_3d * (term_m1 + term_m2);
     let orthogonal_force_secular = cste_3d * (term_m1_s + term_m2_s);
@@ -608,12 +606,13 @@ fn calculate_orthogonal_component_of_the_tidal_force_3d(
 
 // radial (e_{r}) component of tidal force
 fn calculate_radial_component_of_the_tidal_force_3d(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     keplerian_elements: &KeplerianElements,
-    central_body: bool,
+    _central_body: bool,
 ) -> (f64, f64) {
-    let kaula = particle.tides.get_kaula();
+    let kaula = tidal_deformed_body.tides.get_kaula();
     // keplerian elements
     let (
         semi_major_axis,
@@ -631,21 +630,14 @@ fn calculate_radial_component_of_the_tidal_force_3d(
     // Modification has been made but no testing has been done for 3D case (26/2)
     // let eccentricity_function_g_2pq = calculate_eccentricity_function_g_2pq(eccentricity);
     // let inclination_function_f_2mp = calculate_inclination_function_f_2mp(obliquity);
-    let cste = if central_body {
-        calculate_base_constant(
-            tidal_host_particle,
-            particle,
-            tidal_host_particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    } else {
-        calculate_base_constant(
-            particle,
-            tidal_host_particle,
-            particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    };
+    // Prefactor with the deformed body's radius and the perturber's mass, whichever body is
+    // deformed (the 3D branches use the unsigned heliocentric distance for both tides).
+    let cste = calculate_base_constant(
+        tidal_deformed_body,
+        tidal_perturber,
+        orbit.heliocentric_distance,
+        semi_major_axis,
+    );
 
     let (q_min, q_max) = select_eccentricty_order_q(eccentricity);
     let mut sum_over_p_m0 = 0.;

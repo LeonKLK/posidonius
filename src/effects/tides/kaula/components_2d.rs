@@ -1,5 +1,5 @@
 use super::{
-    KaulaParameters, alpha_pqkj, calculate_2d_constant, calculate_base_constant,
+    KaulaParameters, Orbit, alpha_pqkj, calculate_2d_constant, calculate_base_constant,
     select_eccentricty_order_q,
 };
 
@@ -8,23 +8,28 @@ use crate::tools::KeplerianElements;
 
 use itertools::izip;
 
+/// 2D (coplanar) kaula force components on `tidal_deformed_body` due to `tidal_perturber`.
+/// Roles: see `kaula.rs`. The orbit is always the planet's.
 pub fn calculate_2d_tidal_force_components(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     central_body: bool,
     keplerian_elements: &KeplerianElements,
 ) -> ((f64, f64, f64), (f64, f64, f64)) {
-    let kaula = particle.tides.get_kaula();
+    let kaula = tidal_deformed_body.tides.get_kaula();
 
     let orthogonal_constant = orthogonal_constant(
-        tidal_host_particle,
-        particle,
+        tidal_deformed_body,
+        tidal_perturber,
+        orbit,
         keplerian_elements.semi_major_axis,
         central_body,
     );
     let radial_constant = radial_constant(
-        tidal_host_particle,
-        particle,
+        tidal_deformed_body,
+        tidal_perturber,
+        orbit,
         keplerian_elements.semi_major_axis,
         central_body,
     );
@@ -72,50 +77,45 @@ fn zero_eccentricity_components(kaula: &KaulaParameters) -> ((f64, f64), (f64, f
     )
 }
 
-fn orthogonal_constant(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
-    semi_major_axis: f64,
-    central_body: bool,
-) -> f64 {
+/// Heliocentric distance entering the 2D prefactors. For the stellar tide the sign is flipped
+/// so that the force projected with the planet's angles points the right way on the star.
+fn signed_heliocentric_distance(orbit: &Orbit, central_body: bool) -> f64 {
     if central_body {
-        calculate_2d_constant(
-            tidal_host_particle,
-            particle,
-            -tidal_host_particle.heliocentric_distance,
-            semi_major_axis,
-        )
+        -orbit.heliocentric_distance
     } else {
-        calculate_2d_constant(
-            particle,
-            tidal_host_particle,
-            particle.heliocentric_distance,
-            semi_major_axis,
-        )
+        orbit.heliocentric_distance
     }
 }
 
-fn radial_constant(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+fn orthogonal_constant(
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     semi_major_axis: f64,
     central_body: bool,
 ) -> f64 {
-    if central_body {
-        -calculate_base_constant(
-            particle,
-            tidal_host_particle,
-            -tidal_host_particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    } else {
-        -calculate_base_constant(
-            particle,
-            tidal_host_particle,
-            particle.heliocentric_distance,
-            semi_major_axis,
-        )
-    }
+    calculate_2d_constant(
+        tidal_deformed_body,
+        tidal_perturber,
+        orbit,
+        signed_heliocentric_distance(orbit, central_body),
+        semi_major_axis,
+    )
+}
+
+fn radial_constant(
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
+    semi_major_axis: f64,
+    central_body: bool,
+) -> f64 {
+    -calculate_base_constant(
+        tidal_deformed_body,
+        tidal_perturber,
+        signed_heliocentric_distance(orbit, central_body),
+        semi_major_axis,
+    )
 }
 
 fn calculate_2d_components(

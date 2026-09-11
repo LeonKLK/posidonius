@@ -1,5 +1,4 @@
 // Implemented by Alexandre Revol alexandre.revol@unige.ch
-use super::TidesEffect;
 use crate::constants::{DAY, G, TWO_PI};
 use crate::tools;
 use crate::tools::KeplerianElements;
@@ -33,62 +32,109 @@ pub struct KaulaParameters {
     pub polynomials: Polynomials,
 }
 
+// Roles in the kaula tidal force
+// ------------------------------
+// Every function below names its inputs by their physical role:
+// - `tidal_deformed_body`: the body raising the tidal bulge that dissipates energy. Its spin,
+//   radius and love number spectrum enter the force. Star for the stellar tide
+//   (`central_body == true`), planet for the planetary tide (`central_body == false`).
+// - `tidal_perturber`: the body whose gravity raises the bulge. Only its mass enters the force.
+// - `orbit`: the star-planet orbit. It is ALWAYS taken from the planet (the orbiting body carries
+//   the heliocentric position/velocity), whichever body is deformed.
+// The `central_body` flag only selects the physics that genuinely differs between the two tides
+// (love number parity, where the orthogonal component is stored, the sign conventions of the
+// projection); it never decides which body provides the mass or the radius.
+
+/// Orbital quantities of the star-planet pair, taken from the planet (the orbiting body).
+#[derive(Debug, Copy, Clone)]
+pub struct Orbit {
+    /// Heliocentric position/velocity/distance of the planet (used for the keplerian elements).
+    pub heliocentric_position: Axes,
+    pub heliocentric_velocity: Axes,
+    pub heliocentric_distance: f64,
+    /// Position and distance of the planet as stored in `tides.coordinates` (used for the angles).
+    pub position: Axes,
+    pub distance: f64,
+}
+
+impl Orbit {
+    pub fn from_planet(planet: &Particle) -> Self {
+        Self {
+            heliocentric_position: planet.heliocentric_position,
+            heliocentric_velocity: planet.heliocentric_velocity,
+            heliocentric_distance: planet.heliocentric_distance,
+            position: planet.tides.coordinates.position,
+            distance: planet.tides.parameters.internal.distance,
+        }
+    }
+}
+
+/// Tidal force on the tidally deformed body due to the perturber.
+/// - Stellar tide (`central_body == true`): `tidal_deformed_body` is the star, `tidal_perturber`
+///   the planet.
+/// - Planetary tide (`central_body == false`): `tidal_deformed_body` is the planet,
+///   `tidal_perturber` the star.
+/// The orbit is always read from the planet. Both particles are mutable because the deformed
+/// body caches its love numbers and secular force, and the planet stores the orthogonal component.
 pub fn calculate_tidal_force(
-    tidal_host_particle: &mut Particle,
-    particle: &mut Particle,
+    tidal_deformed_body: &mut Particle,
+    tidal_perturber: &mut Particle,
     central_body: bool,
 ) -> Axes {
     //// TODO: Reconsider how to compute the stellar tide here instead of in tides.rs while allowing a mixture of tidal models
-    let gm = G * (tidal_host_particle.mass + particle.mass);
+    let gm = G * (tidal_deformed_body.mass + tidal_perturber.mass);
 
-    let (obliquity, keplerian_elements) = if central_body {
-        (
-            tools::calculate_inclination_orbital_equatorial_plane(
-                tidal_host_particle.heliocentric_position,
-                tidal_host_particle.heliocentric_velocity,
-                particle.spin,
-            ),
-            tools::calculate_keplerian_orbital_elements(
-                gm,
-                tidal_host_particle.heliocentric_position,
-                tidal_host_particle.heliocentric_velocity,
-            ),
-        )
-    } else {
-        (
-            tools::calculate_inclination_orbital_equatorial_plane(
-                particle.heliocentric_position,
-                particle.heliocentric_velocity,
-                particle.spin,
-            ),
-            tools::calculate_keplerian_orbital_elements(
-                gm,
-                particle.heliocentric_position,
-                particle.heliocentric_velocity,
-            ),
-        )
-    };
+    let orbit = Orbit::from_planet(planet(tidal_deformed_body, tidal_perturber, central_body));
+
+    // Obliquity of the deformed body with respect to the orbit, and keplerian elements of the orbit.
+    let obliquity = tools::calculate_inclination_orbital_equatorial_plane(
+        orbit.heliocentric_position,
+        orbit.heliocentric_velocity,
+        tidal_deformed_body.spin,
+    );
+    let keplerian_elements = tools::calculate_keplerian_orbital_elements(
+        gm,
+        orbit.heliocentric_position,
+        orbit.heliocentric_velocity,
+    );
 
     let (tidal_force, tidal_force_secular) = calculate_2d_or_3d_tidal_force_components(
-        tidal_host_particle,
-        particle,
+        tidal_deformed_body,
+        tidal_perturber,
+        &orbit,
         central_body,
         obliquity,
         &keplerian_elements,
     );
 
     calculate_tidal_force_component(
-        tidal_host_particle,
-        particle,
+        tidal_deformed_body,
+        tidal_perturber,
+        &orbit,
         central_body,
         tidal_force,
         tidal_force_secular,
     )
 }
 
+/// The planet of the pair: the perturber for the stellar tide, the deformed body for the
+/// planetary tide.
+fn planet<'a>(
+    tidal_deformed_body: &'a mut Particle,
+    tidal_perturber: &'a mut Particle,
+    central_body: bool,
+) -> &'a mut Particle {
+    if central_body {
+        tidal_perturber
+    } else {
+        tidal_deformed_body
+    }
+}
+
 fn calculate_tidal_force_component(
-    tidal_host_particle: &mut Particle,
-    particle: &mut Particle,
+    tidal_deformed_body: &mut Particle,
+    tidal_perturber: &mut Particle,
+    orbit: &Orbit,
     central_body: bool,
     tidal_force: (f64, f64, f64),
     tidal_force_secular: (f64, f64, f64),
@@ -104,14 +150,15 @@ fn calculate_tidal_force_component(
     let (normal_component_secular, orthogonal_component_secular, radial_component_secular) =
         tidal_force_secular;
 
+    // The orthogonal component is stored on the planet, in the slot of the tide that produced it.
     if central_body {
-        tidal_host_particle
+        tidal_perturber
             .tides
             .parameters
             .internal
             .orthogonal_component_of_the_tidal_force_due_to_stellar_tide = orthogonal_component;
     } else {
-        particle
+        tidal_deformed_body
             .tides
             .parameters
             .internal
@@ -120,9 +167,7 @@ fn calculate_tidal_force_component(
 
     // Cartesian tidal force computed by projection of the spherical coordinates
     let components = cartesian_projection_of_spherical_coordinates(
-        tidal_host_particle,
-        particle,
-        central_body,
+        orbit,
         normal_component,
         orthogonal_component,
         radial_component,
@@ -130,38 +175,35 @@ fn calculate_tidal_force_component(
 
     // Secular part of the tidal torque (simplified from the rapid varying phases)
     let secular_projection = cartesian_projection_of_spherical_coordinates(
-        tidal_host_particle,
-        particle,
-        central_body,
+        orbit,
         normal_component_secular,
         orthogonal_component_secular,
         radial_component_secular,
     );
 
-    particle.tides.get_kaula_mut().tidal_force = secular_projection;
+    tidal_deformed_body.tides.get_kaula_mut().tidal_force = secular_projection;
 
     components
 }
 
 fn calculate_2d_or_3d_tidal_force_components(
-    tidal_host_particle: &Particle,
-    particle: &mut Particle,
+    tidal_deformed_body: &mut Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     central_body: bool,
     obliquity: f64,
     keplerian_elements: &KeplerianElements,
 ) -> ((f64, f64, f64), (f64, f64, f64)) {
-    // !central_body ==> planetary tide ==> particle is the planet
-    // central_body ==> stellar tide ==> tidal_host_particle is the planet
     // Keplerian elements
     let eccentricity = keplerian_elements.eccentricity;
     let orbital_period = keplerian_elements.orbital_period;
 
-    // Planetary spin in [rad.s^-1]
-    let spin = sqrt!(particle.norm_spin_vector_2) / DAY;
+    // Spin of the tidally deformed body in [rad.s^-1]
+    let spin = sqrt!(tidal_deformed_body.norm_spin_vector_2) / DAY;
     // Orbital mean motion in [rad.s^-1]
     let orbital_frequency = TWO_PI / (orbital_period * DAY);
 
-    let kaula = particle.tides.get_kaula_mut();
+    let kaula = tidal_deformed_body.tides.get_kaula_mut();
     // Update the kaula eccentricity, used by both 2D and 3D
     kaula.polynomials.update_eccentricity_2d(eccentricity);
 
@@ -178,8 +220,9 @@ fn calculate_2d_or_3d_tidal_force_components(
         );
 
         calculate_2d_tidal_force_components(
-            tidal_host_particle,
-            particle,
+            tidal_deformed_body,
+            tidal_perturber,
+            orbit,
             central_body,
             keplerian_elements,
         )
@@ -194,8 +237,9 @@ fn calculate_2d_or_3d_tidal_force_components(
         kaula.polynomials.update_eccentricity_3d(eccentricity);
 
         calculate_3d_tidal_force_components(
-            tidal_host_particle,
-            particle,
+            tidal_deformed_body,
+            tidal_perturber,
+            orbit,
             central_body,
             keplerian_elements,
         )
@@ -203,9 +247,9 @@ fn calculate_2d_or_3d_tidal_force_components(
 }
 
 // TODO physicist rename
-fn trig_angles(particle: &Particle) -> (f64, f64, f64, f64) {
-    let radial_distance = particle.tides.parameters.internal.distance;
-    let (x, y, z) = particle.tides.coordinates.position.unpack();
+fn trig_angles(orbit: &Orbit) -> (f64, f64, f64, f64) {
+    let radial_distance = orbit.distance;
+    let (x, y, z) = orbit.position.unpack();
 
     let coplanar_distance = sqrt!(x.powi(2) + y.powi(2));
     let cos_phi = x / coplanar_distance;
@@ -217,9 +261,7 @@ fn trig_angles(particle: &Particle) -> (f64, f64, f64, f64) {
 }
 
 fn cartesian_projection_of_spherical_coordinates(
-    tidal_host_particle: &Particle,
-    particle: &mut Particle,
-    central_body: bool,
+    orbit: &Orbit,
     normal_component: f64,
     orthogonal_component: f64,
     radial_component: f64,
@@ -229,51 +271,36 @@ fn cartesian_projection_of_spherical_coordinates(
     // The coplanar distance is the radial distance projected in the x-y plane
     // The theta angle is the angle between the radial distance vector with respect to the z axis
     // The phi angle is the angle between the coplanar distance with respect to the x axis
-    let (cos_phi, cos_theta, sin_phi, sin_theta) = if central_body {
-        trig_angles(tidal_host_particle)
-    } else {
-        trig_angles(particle)
-    };
+    // The angles are those of the planet on its orbit, whichever body is deformed.
+    let (cos_phi, cos_theta, sin_phi, sin_theta) = trig_angles(orbit);
 
     Axes::from(
-        radial_component * sin_theta * cos_phi
-        + normal_component * cos_theta * cos_phi
-        - orthogonal_component * sin_phi,
-
+        radial_component * sin_theta * cos_phi + normal_component * cos_theta * cos_phi
+            - orthogonal_component * sin_phi,
         radial_component * sin_theta * sin_phi
-        + normal_component * cos_theta * sin_phi
-        + orthogonal_component * cos_phi,
-
-        radial_component * cos_theta
-        - normal_component * sin_theta
+            + normal_component * cos_theta * sin_phi
+            + orthogonal_component * cos_phi,
+        radial_component * cos_theta - normal_component * sin_theta,
     )
 }
 
 // Calculate tidal torque due to tidal forces
+/// Torque on the tidally deformed body: r x F with F the secular kaula force cached on the
+/// deformed body and r the position of the planet on its orbit.
 pub fn calculate_torque_due_to_tides(
-    tidal_host_particle: &Particle,
-    particle: &Particle,
+    tidal_deformed_body: &Particle,
+    orbit: &Orbit,
     central_body: bool,
 ) -> Axes {
-    let mut position = particle.tides.coordinates.position;
+    let mut position = orbit.position;
 
-    let tidal_force = if central_body {
-        if matches!(
-            &tidal_host_particle.tides.effect,
-            TidesEffect::CentralBody(_)
-        ) {
-            // additive inversion of positions if the host particle is the central body
-            position.negate();
-        }
-        // If this is the central body, take the kaula tidal force from the tidal host particle
-        tidal_host_particle.tides.get_kaula().tidal_force
-    } else {
-        // If it is not the central body, take the kaula tidal froce from the other particle
-        particle.tides.get_kaula().tidal_force
-    };
-    // The negative sign of the position vector for stellar tide: Torque = r cross F
-    // The r here should be the vector point from th primary (perturber) to the secondary (perturbed)
-    // Thus we added a minus sign here as particle.tides.coordinates.position Axes are always heliocentric.
+    if central_body {
+        // The negative sign of the position vector for stellar tide: Torque = r cross F
+        // The r here should be the vector point from the primary (perturber) to the secondary (perturbed)
+        // Thus we added a minus sign here as the orbit position is always heliocentric.
+        position.negate();
+    }
+    let tidal_force = tidal_deformed_body.tides.get_kaula().tidal_force;
 
     // Let the torque be the cross product of the radial distance vector and the tidal force vector
     let torque_due_to_tides_x = position.y * tidal_force.z - position.z * tidal_force.y;
@@ -313,30 +340,34 @@ fn alpha_pqkj(
     f64!(2 * p - 2 * k + j - q) * mean_anomaly + f64!(2 * (p - k)) * argument_perihelion
 }
 
+/// Prefactor of the kaula tidal force, `G m_perturber^2 R_deformed^5 / (a^6 r)`.
+/// The radius is the one of the tidally deformed body, the mass the one of the perturber.
 fn calculate_base_constant(
-    particle: &Particle,
-    other_particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
     heliocentric_radius: f64,
     semi_major_axis: f64,
 ) -> f64 {
-    (G * other_particle.mass.powi(2) * particle.radius.powi(5))
+    (G * tidal_perturber.mass.powi(2) * tidal_deformed_body.radius.powi(5))
         / (semi_major_axis.powi(6) * heliocentric_radius)
 }
 
+/// 2D prefactor: `calculate_base_constant` divided by sin(theta) of the planet on its orbit.
 fn calculate_2d_constant(
-    particle: &Particle,
-    other_particle: &Particle,
+    tidal_deformed_body: &Particle,
+    tidal_perturber: &Particle,
+    orbit: &Orbit,
     heliocentric_radius: f64,
     semi_major_axis: f64,
 ) -> f64 {
-    let distance = particle.tides.coordinates.position.norm();
-    let (x, y, _z) = particle.tides.coordinates.position.unpack();
+    let distance = orbit.position.norm();
+    let (x, y, _z) = orbit.position.unpack();
     let coplanar_distance = sqrt!(x.powi(2) + y.powi(2));
     let sin_theta = coplanar_distance / distance;
 
     -(calculate_base_constant(
-        particle,
-        other_particle,
+        tidal_deformed_body,
+        tidal_perturber,
         heliocentric_radius,
         semi_major_axis,
     ) / sin_theta)
