@@ -64,6 +64,15 @@ pub struct TidesParticleInternalParameters {
     //
     pub denergy_dt: f64, // Only for history output
     pub lag_angle: f64, // Used by EvolutionType::BolmontMathis2016, EvolutionType::GalletBolmont2017 and EvolutionType::LeconteChabrier2013(true)
+    //
+    // Kaula stellar tide, stored on the ORBITING body (one value per planet): the cartesian force
+    // the deformed star exerts on this planet and its secular part (used for the stellar torque).
+    // With several planets the star's single `KaulaParameters::tidal_force` would only keep the
+    // last planet's force (README_debug_kaula_2026.md, F9).
+    #[serde(default)]
+    pub kaula_stellar_tide_force: Axes,
+    #[serde(default)]
+    pub kaula_stellar_tide_secular_force: Axes,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
@@ -115,13 +124,17 @@ impl TidalModel {
             TidalModel::Kaula(_) => {
                 // The deformed body is the host for the stellar tide, the planet otherwise;
                 // the orbit is always the planet's.
-                let tidal_deformed_body = if central_body {
-                    tidal_host_particle
-                } else {
+                let secular_force = if central_body {
                     particle
+                        .tides
+                        .parameters
+                        .internal
+                        .kaula_stellar_tide_secular_force
+                } else {
+                    particle.tides.get_kaula().tidal_force
                 };
                 kaula::calculate_torque_due_to_tides(
-                    tidal_deformed_body,
+                    secular_force,
                     &kaula::Orbit::from_planet(particle),
                     central_body,
                 )
@@ -179,6 +192,8 @@ impl Tides {
             effect,
             parameters: TidesParticleParameters {
                 internal: TidesParticleInternalParameters {
+                    kaula_stellar_tide_force: Axes::new(),
+                    kaula_stellar_tide_secular_force: Axes::new(),
                     distance: 0.,
                     radial_velocity: 0.,
                     scaled_dissipation_factor,

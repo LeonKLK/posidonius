@@ -21,6 +21,8 @@ class Tides(object):
                     "scalar_product_of_vector_position_with_stellar_spin": 0.0,
                     "scaled_dissipation_factor": 0.0,
                     "shape": Axes(0.0, 0.0, 0.0).get(),
+                    "kaula_stellar_tide_force": Axes(0.0, 0.0, 0.0).get(),
+                    "kaula_stellar_tide_secular_force": Axes(0.0, 0.0, 0.0).get(),
                 },
                 "output": {
                     "acceleration": Axes(0.0, 0.0, 0.0).get(),

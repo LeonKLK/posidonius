@@ -181,7 +181,22 @@ fn calculate_tidal_force_component(
         radial_component_secular,
     );
 
-    tidal_deformed_body.tides.get_kaula_mut().tidal_force = secular_projection;
+    if central_body {
+        // Stellar tide: keep the force per planet (the star's kaula parameters are shared by
+        // all planets and would only retain the last one).
+        tidal_perturber
+            .tides
+            .parameters
+            .internal
+            .kaula_stellar_tide_force = components;
+        tidal_perturber
+            .tides
+            .parameters
+            .internal
+            .kaula_stellar_tide_secular_force = secular_projection;
+    } else {
+        tidal_deformed_body.tides.get_kaula_mut().tidal_force = secular_projection;
+    }
 
     components
 }
@@ -285,10 +300,11 @@ fn cartesian_projection_of_spherical_coordinates(
 }
 
 // Calculate tidal torque due to tidal forces
-/// Torque on the tidally deformed body: r x F with F the secular kaula force cached on the
-/// deformed body and r the position of the planet on its orbit.
+/// Torque on the tidally deformed body: r x F with F the secular kaula force of this
+/// star-planet pair (stored on the planet for the stellar tide, on the planet's kaula
+/// parameters for the planetary tide) and r the position of the planet on its orbit.
 pub fn calculate_torque_due_to_tides(
-    tidal_deformed_body: &Particle,
+    tidal_force: Axes,
     orbit: &Orbit,
     central_body: bool,
 ) -> Axes {
@@ -300,8 +316,6 @@ pub fn calculate_torque_due_to_tides(
         // Thus we added a minus sign here as the orbit position is always heliocentric.
         position.negate();
     }
-    let tidal_force = tidal_deformed_body.tides.get_kaula().tidal_force;
-
     // Let the torque be the cross product of the radial distance vector and the tidal force vector
     let torque_due_to_tides_x = position.y * tidal_force.z - position.z * tidal_force.y;
     let torque_due_to_tides_y = position.z * tidal_force.x - position.x * tidal_force.z;

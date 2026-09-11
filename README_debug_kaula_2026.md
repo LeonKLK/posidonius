@@ -93,6 +93,16 @@ acceleration is discontinuous in the velocity at the ~3e-5 relative level. Costs
 ambiguity. Stellar Kaula and CTL cases converge in < 3 iterations (the enforced minimum). Candidates: branch in
 tools::calculate_keplerian_orbital_elements, q-range tier selection, love-number cache refresh.
 
+### F9. [x] Stellar kaula torque with several planets used the LAST planet's force for every planet
+`kaula::calculate_tidal_force` stored the secular force of the stellar tide in the STAR's single
+`KaulaParameters::tidal_force`; `calculate_dangular_momentum_dt_due_to_tides` then computed r_i x F for every planet
+i with that one F (the last planet's). Demonstration (cases/a03_k2_flatline_signed.py --second_planet_au 1.0): adding a
+distant Earth-mass planet without tides made the stellar tidal spin-up drop from 3.70e-24 to 0 rad/s^2.
+Fixed on branch speedup_kaula_2026: the force and its secular part are stored per planet
+(`TidesParticleInternalParameters::kaula_stellar_tide_force / _secular_force`) and the torque reads them from the
+planet. Single-planet results unchanged (all stored references pass); the Kwok+2026 two-planet case changes its star
+spin by 3e-9 relative over 500 yr.
+
 ## Other differences vs Spiroid worth remembering (not bugs)
 - Stellar evolution: Posidonius `GalletBolmont2017` gives R = 1.4917 Rsun at 5 Myr; Spiroid Starevol
   table (`savgol_10.csv`) gives 1.4445 Rsun. Tidal torque scales as R^5 (17 % difference).

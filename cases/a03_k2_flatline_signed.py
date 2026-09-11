@@ -14,6 +14,7 @@ if __name__ == "__main__":
     parser.add_argument('--snapshot', type=float, default=None, help='historic snapshot period in days (default: the time step)')
     parser.add_argument('--ecc', type=float, default=0., help='initial eccentricity (default 0)')
     parser.add_argument('--notides', action='store_true', help='disable the stellar tide (control run)')
+    parser.add_argument('--second_planet_au', type=float, default=0., help='add a distant Earth-mass planet (tides disabled) at this semi-major axis in AU (0 = none); used to test the multi-planet stellar torque')
 
     args = parser.parse_args()
     filename = args.output_filename
@@ -265,6 +266,22 @@ if __name__ == "__main__":
     planet.set_disk(planet_disk)
     planet.set_evolution(planet_evolution)
     universe.add_particle(planet)
+
+    if args.second_planet_au > 0.:
+        # Distant Earth-mass planet without tides: its stellar tide is negligible, so the stellar torque must
+        # stay that of the first planet (README_debug_kaula_2026.md, F9).
+        p2_mass = 1. * posidonius.constants.M_EARTH
+        p2_radius = 1. * posidonius.constants.R_EARTH
+        p2_position, p2_velocity = posidonius.calculate_cartesian_coordinates(p2_mass, args.second_planet_au, 0., 0., 0., 0., 0., masses=[star_mass], positions=[star_position], velocities=[star_velocity])
+        p2_n = posidonius.constants.TWO_PI / (2. * np.pi * np.sqrt((args.second_planet_au * posidonius.constants.AU)**3 / (posidonius.constants.G_SI * star_mass * posidonius.constants.M_SUN)) / 86400.)
+        p2 = posidonius.Particle(p2_mass, p2_radius, 0.5, p2_position, p2_velocity, posidonius.Axes(0., 0., p2_n))
+        p2.set_tides(posidonius.effects.tides.OrbitingBody(posidonius.effects.tides.DisabledModel()))
+        p2.set_rotational_flattening(posidonius.effects.rotational_flattening.Disabled())
+        p2.set_general_relativity(posidonius.effects.general_relativity.Disabled())
+        p2.set_wind(posidonius.effects.wind.Disabled())
+        p2.set_disk(posidonius.effects.disk.Disabled())
+        p2.set_evolution(posidonius.NonEvolving())
+        universe.add_particle(p2)
 
     ############################################################################
 
