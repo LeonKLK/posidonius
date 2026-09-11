@@ -23,6 +23,7 @@ class Tides(object):
                     "shape": Axes(0.0, 0.0, 0.0).get(),
                     "kaula_stellar_tide_force": Axes(0.0, 0.0, 0.0).get(),
                     "kaula_stellar_tide_secular_force": Axes(0.0, 0.0, 0.0).get(),
+                    "kaula_planetary_tide_force": Axes(0.0, 0.0, 0.0).get(),
                 },
                 "output": {
                     "acceleration": Axes(0.0, 0.0, 0.0).get(),

@@ -468,6 +468,8 @@ impl WHFast {
             {
                 let dangular_momentum_dt = integrate_spin;
                 let accelerations = true;
+                // Kaula tidal forces are computed at the first iteration and reused afterwards
+                self.universe.reuse_cached_tidal_forces = i > 0;
                 self.universe.calculate_additional_effects(
                     self.current_time,
                     i == 0 && evolution, // Only evolve in the first iteration (optimization),

@@ -58,6 +58,12 @@ pub struct Universe {
     pub consider_effects: ConsiderEffects,
     pub general_relativity_implementation: GeneralRelativityImplementation, // Optimization: fast access to GR implementation for integrators
     pub hosts: Hosts,
+    // Set by the integrator while iterating a velocity kick (WHFast implicit midpoint): on the
+    // second and later iterations the kaula tidal forces cached at the first iteration are reused
+    // instead of being recomputed (they depend on the velocity only through the osculating
+    // elements, at the 1e-10 level). Never serialized.
+    #[serde(skip)]
+    pub reuse_cached_tidal_forces: bool,
     pair_dependent_scaled_dissipation_factor: HashMap<usize, f64>, // Central body specific
     #[serde(with = "BigArray")]
     roche_radiuses: [f64; MAX_PARTICLES * MAX_PARTICLES],
@@ -228,6 +234,7 @@ impl Universe {
             consider_effects,
             general_relativity_implementation,
             hosts,
+            reuse_cached_tidal_forces: false,
             pair_dependent_scaled_dissipation_factor: HashMap::new(),
             roche_radiuses,
         }
@@ -714,6 +721,7 @@ impl Universe {
                                 tidal_host_particle,
                                 particles_left,
                                 particles_right,
+                                self.reuse_cached_tidal_forces,
                             );
                         }
 

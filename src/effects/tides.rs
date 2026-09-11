@@ -73,6 +73,9 @@ pub struct TidesParticleInternalParameters {
     pub kaula_stellar_tide_force: Axes,
     #[serde(default)]
     pub kaula_stellar_tide_secular_force: Axes,
+    // Kaula planetary tide: cartesian force on this (deformed) planet, cached for the kick.
+    #[serde(default)]
+    pub kaula_planetary_tide_force: Axes,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
@@ -194,6 +197,7 @@ impl Tides {
                 internal: TidesParticleInternalParameters {
                     kaula_stellar_tide_force: Axes::new(),
                     kaula_stellar_tide_secular_force: Axes::new(),
+                    kaula_planetary_tide_force: Axes::new(),
                     distance: 0.,
                     radial_velocity: 0.,
                     scaled_dissipation_factor,
@@ -472,10 +476,13 @@ pub fn calculate_denergy_dt(particles: &mut [Particle], more_particles: &mut [Pa
     // }
 }
 
+/// `reuse_cached_kaula_forces`: reuse the kaula forces stored at the previous evaluation (set by
+/// WHFast on the second and later iterations of a velocity kick) instead of recomputing them.
 pub fn calculate_tidal_acceleration(
     tidal_host_particle: &mut Particle,
     particles: &mut [Particle],
     more_particles: &mut [Particle],
+    reuse_cached_kaula_forces: bool,
 ) {
     let mut sum_tidal_force = Axes::new();
 
@@ -495,7 +502,14 @@ pub fn calculate_tidal_acceleration(
                 }
                 TidalModel::Kaula(_) => {
                     // Planetary tide: the planet is deformed, the star perturbs.
-                    kaula::calculate_tidal_force(particle, tidal_host_particle, central_body)
+                    if reuse_cached_kaula_forces {
+                        particle.tides.parameters.internal.kaula_planetary_tide_force
+                    } else {
+                        let force =
+                            kaula::calculate_tidal_force(particle, tidal_host_particle, central_body);
+                        particle.tides.parameters.internal.kaula_planetary_tide_force = force;
+                        force
+                    }
                 }
                 TidalModel::DisabledModel => {
                     continue;
@@ -534,8 +548,12 @@ pub fn calculate_tidal_acceleration(
         let central_body = true;
         for particle in particles.iter_mut().chain(more_particles.iter_mut()) {
             // Stellar tide: the star is deformed, the planet perturbs.
-            let mut tidal_force =
-                kaula::calculate_tidal_force(tidal_host_particle, particle, central_body);
+            // (calculate_tidal_force stores the force on the planet; reuse it on later iterations)
+            let mut tidal_force = if reuse_cached_kaula_forces {
+                particle.tides.parameters.internal.kaula_stellar_tide_force
+            } else {
+                kaula::calculate_tidal_force(tidal_host_particle, particle, central_body)
+            };
 
             let mut tidal_force_host = tidal_force;
             tidal_force_host.mul(1. / tidal_host_particle.mass);
