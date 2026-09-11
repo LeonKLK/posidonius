@@ -465,7 +465,12 @@ impl WHFast {
             // To calculate non-gravity/additional accelerations:
             // - Positions and velocities are needed in heliocentric
             // - But additional accelerations are computed in inertial (i.e., barycentric)
-            self.universe.inertial_to_heliocentric(); // required to compute additional effects
+            // Positions do not change within the kick: only the velocities after the first iteration
+            if i == 0 {
+                self.universe.inertial_to_heliocentric(); // required to compute additional effects
+            } else {
+                self.universe.inertial_to_heliocentric_velocities();
+            }
             // Calculate non-gravity accelerations
             {
                 let dangular_momentum_dt = integrate_spin;

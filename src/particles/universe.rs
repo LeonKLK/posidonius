@@ -501,6 +501,36 @@ impl Universe {
         }
     }
 
+    /// Velocity part of `inertial_to_heliocentric` only: during the iterations of a velocity
+    /// kick the positions (and hence the heliocentric positions and distances) do not change.
+    pub fn inertial_to_heliocentric_velocities(&mut self) {
+        let (particles_left, particles_right) =
+            self.particles.split_at_mut(self.hosts.index.most_massive);
+        if let Some((host_particle, particles_right)) = particles_right.split_first_mut() {
+            for particle in particles_left.iter_mut().chain(particles_right.iter_mut()) {
+                particle.heliocentric_velocity = particle.inertial_velocity;
+                particle
+                    .heliocentric_velocity
+                    .sub(&host_particle.inertial_velocity);
+
+                particle.heliocentric_radial_velocity = particle
+                    .heliocentric_position
+                    .dot(&particle.heliocentric_velocity)
+                    / particle.heliocentric_distance;
+
+                let mut tmp = particle.heliocentric_velocity;
+                tmp.sub(&host_particle.heliocentric_velocity);
+                particle.heliocentric_norm_velocity_vector = tmp.norm();
+                let (x, y, z) = tmp.unpack();
+                particle.heliocentric_norm_velocity_vector_2 = x.powi(2) + y.powi(2) + z.powi(2);
+            }
+            host_particle.heliocentric_velocity.zero();
+            host_particle.heliocentric_radial_velocity = 0.;
+            host_particle.heliocentric_norm_velocity_vector_2 = 0.;
+            host_particle.heliocentric_norm_velocity_vector = 0.;
+        }
+    }
+
     pub fn initialize(&mut self, dangular_momentum_dt: bool, accelerations: bool) {
         let initialize_tides =
             self.consider_effects.tides && (accelerations || dangular_momentum_dt);
