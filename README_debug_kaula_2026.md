@@ -25,7 +25,9 @@ The repository tests never see it because every test case uses e = 1e-6 or e = 0
 Fix direction: read index 7 (physical q = 0), or route e == 0 through `calculate_2d_components`.
 Related: the local branch `zero_ecc_in_kaula` (June 2026) contains an earlier attempt.
 
-### F2. [ ] Stellar (central-body) tidal force built with the planet-tide prefactor
+### F2. [x] Stellar (central-body) tidal force built with the planet-tide prefactor
+Fixed by the role-based refactor (commit "kaula: name inputs by role"); references regenerated in the
+following commit. Verified: da/dt = -6.906e-7 m/s on the comparison case, as the analytic rate.
 For the stellar tide, `tides.rs::calculate_tidal_acceleration` calls
 `kaula::calculate_tidal_force(planet, star, central_body = true)`, so inside `kaula.rs`
 `tidal_host_particle` is the PLANET and `particle` is the STAR.
@@ -48,6 +50,8 @@ After the fix the stored reference data of `enabled_star_tides` and `enabled_bot
 (`tests/data/test_tides_kaula-*`) must be regenerated: they were produced with the wrong prefactor.
 
 ### F3. [ ] 2D vs 3D sign convention of the heliocentric distance for the central body
+(After the refactor the 2D sign flip lives in `components_2d.rs::signed_heliocentric_distance`; the 3D
+constants take the unsigned `orbit.heliocentric_distance` for both tides, as before.)
 2D central branches pass `-tidal_host_particle.heliocentric_distance` to the constants, 3D central
 branches pass `+tidal_host_particle.heliocentric_distance` (normal, radial) or `1.0` (orthogonal).
 Not yet checked whether 3D compensates the sign elsewhere. The 3D stellar tide has no test.
@@ -89,6 +93,16 @@ Keep that file in `input/love_numbers/` on every machine that runs the tests.
 - Wind prescriptions differ (Bouvier 1997 here vs Matt+2015 in Spiroid).
 - The comparison case sits ~0.5 % from corotation (2n - 2Omega = 0.009 spin_spec), so the SIGN of the
   stellar torque depends on tiny differences in Omega(t).
+
+## Role convention after the refactor (kaula.rs)
+- `tidal_deformed_body`: star for the stellar tide (`central_body == true`), planet for the planetary
+  tide. Provides spin, radius and the love number spectrum.
+- `tidal_perturber`: the other body. Provides only its mass.
+- `Orbit::from_planet(planet)`: heliocentric position/velocity/distance and the `tides.coordinates`
+  position/distance of the PLANET, used for the keplerian elements and the projection angles whichever
+  body is deformed.
+- `central_body` only selects: love-number parity, the slot where the orthogonal component is stored
+  on the planet, the sign of the heliocentric distance in the 2D prefactors, the sign of r in the torque.
 
 ## How to run the reference tests
 ```
