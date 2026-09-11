@@ -176,14 +176,12 @@ impl LoveNumber {
             p_min,
             p_max,
         );
-        self.caches[self.current] = Cache {
-            valid: true,
-            last_spin_rate: spin_rate,
-            last_orbital_frequency: orbital_frequency,
-            last_q_range: q_range,
-            last_full: true,
-            ..self.caches[self.current]
-        };
+        let cache = &mut self.caches[self.current];
+        cache.valid = true;
+        cache.last_spin_rate = spin_rate;
+        cache.last_orbital_frequency = orbital_frequency;
+        cache.last_q_range = q_range;
+        cache.last_full = true;
     }
     /// `perturber_id`: particle id of the perturbing body, selecting the cache slot.
     pub fn refresh_cache_partial(
@@ -226,14 +224,12 @@ impl LoveNumber {
             p_min,
             p_max,
         );
-        self.caches[self.current] = Cache {
-            valid: true,
-            last_spin_rate: spin_rate,
-            last_orbital_frequency: orbital_frequency,
-            last_q_range: q_range,
-            last_full: false,
-            ..self.caches[self.current]
-        };
+        let cache = &mut self.caches[self.current];
+        cache.valid = true;
+        cache.last_spin_rate = spin_rate;
+        cache.last_orbital_frequency = orbital_frequency;
+        cache.last_q_range = q_range;
+        cache.last_full = false;
     }
     /// Recomputes all the love number values.
     // Called at each time step to cache love numbers for that iteration, to prevent duplicate calculations.
