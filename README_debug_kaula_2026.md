@@ -85,6 +85,14 @@ Keep that file in `input/love_numbers/` on every machine that runs the tests.
 (`LoveNumber` holds 3 x 1024 f64 by value, `Particle` copies are large). Run with
 `RUST_MIN_STACK=268435456 cargo test --release --test test_tides_kaula -- --test-threads=1`.
 
+### F8. [ ] Planetary Kaula kick does not converge in the WHFast implicit-midpoint loop
+Profiling (see ~/Documents/spi_pos_comparison/profiling/PERFORMANCE_REPORT.md): with a planetary Kaula tide (e = 0.05,
+Leconte k2) 38 % of the velocity kicks run to IMPLICIT_MIDPOINT_MAX_ITER = 10 without meeting the machine-epsilon test;
+the residual is a period-2 limit cycle (planet velocity alternating by 2e-12 relative), i.e. some term of the Kaula
+acceleration is discontinuous in the velocity at the ~3e-5 relative level. Costs ~2x runtime and leaves a 2e-12 velocity
+ambiguity. Stellar Kaula and CTL cases converge in < 3 iterations (the enforced minimum). Candidates: branch in
+tools::calculate_keplerian_orbital_elements, q-range tier selection, love-number cache refresh.
+
 ## Other differences vs Spiroid worth remembering (not bugs)
 - Stellar evolution: Posidonius `GalletBolmont2017` gives R = 1.4917 Rsun at 5 Myr; Spiroid Starevol
   table (`savgol_10.csv`) gives 1.4445 Rsun. Tidal torque scales as R^5 (17 % difference).
