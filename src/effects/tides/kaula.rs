@@ -232,6 +232,7 @@ fn calculate_2d_or_3d_tidal_force_components(
             spin,
             orbital_frequency,
             eccentricity,
+            tidal_perturber.id,
         );
 
         calculate_2d_tidal_force_components(
@@ -243,9 +244,13 @@ fn calculate_2d_or_3d_tidal_force_components(
         )
     } else {
         // 3D case
-        kaula
-            .love_numbers
-            .refresh_cache_full(central_body, spin, orbital_frequency, eccentricity);
+        kaula.love_numbers.refresh_cache_full(
+            central_body,
+            spin,
+            orbital_frequency,
+            eccentricity,
+            tidal_perturber.id,
+        );
 
         // Update the kaula inclination and 3D eccentricty, used only by 3D
         kaula.polynomials.update_inclination(obliquity);
