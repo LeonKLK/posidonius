@@ -56,6 +56,7 @@ pub fn calculate_2d_tidal_force_components(
 }
 
 // TODO document this function
+// Bug exist for now: imk2_2200 should be rek2_2200
 fn zero_eccentricity_components(kaula: &KaulaParameters) -> ((f64, f64), (f64, f64)) {
     // If circular coplanar orbit
     let rek2_2010 = kaula.love_numbers.real(0, 1, 0);
