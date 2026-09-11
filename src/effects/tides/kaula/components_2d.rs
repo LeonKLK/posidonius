@@ -141,6 +141,19 @@ fn calculate_2d_components(
     let mut radial_sum_over_q_secular = 0.;
     let (q_min, q_max) = select_eccentricty_order_q(eccentricity);
 
+    // With p = k = 0 the phase alpha_pqkj reduces to (j - q) * mean_anomaly (the argument of
+    // perihelion term vanishes), so the cos/sin of the n_q^2 (q, j) pairs only take 2 n_q - 1
+    // distinct values: tabulate them once per call. The angle is formed exactly as in
+    // `alpha_pqkj` so the results are bit-identical.
+    let n_q = q_max - q_min;
+    let mut cos_alpha = [0.0_f64; 29];
+    let mut sin_alpha = [0.0_f64; 29];
+    for (index, entry) in cos_alpha.iter_mut().zip(sin_alpha.iter_mut()).take(2 * n_q - 1).enumerate() {
+        let alpha = alpha_pqkj(0, n_q - 1, 0, index, mean_anomaly, argument_perihelion);
+        *entry.0 = cos!(alpha);
+        *entry.1 = sin!(alpha);
+    }
+
     // For q in the range defined by the eccentricity
     for (q, (g_20q, g_21q)) in izip!(
         kaula.polynomials.eccentricity_function_g_2pq[0],
@@ -172,18 +185,13 @@ fn calculate_2d_components(
         .skip(q_min)
         .enumerate()
         {
-            let alpha_qj = alpha_pqkj(
-                0,
-                q_min + q,
-                0,
-                q_min + j,
-                mean_anomaly,
-                argument_perihelion,
-            );
+            // alpha_qj = (j - q) * mean_anomaly, tabulated above at offset j - q + n_q - 1
+            let cos_alpha_qj = cos_alpha[j + n_q - 1 - q];
+            let sin_alpha_qj = sin_alpha[j + n_q - 1 - q];
 
-            sum_over_j_1 += g_21j * (cos!(alpha_qj) * rek2_201q - sin!(alpha_qj) * imk2_201q);
-            sum_over_j_2 += g_20j * (sin!(alpha_qj) * rek2_220q + cos!(alpha_qj) * imk2_220q);
-            sum_over_j_3 += g_20j * (cos!(alpha_qj) * rek2_220q - sin!(alpha_qj) * imk2_220q);
+            sum_over_j_1 += g_21j * (cos_alpha_qj * rek2_201q - sin_alpha_qj * imk2_201q);
+            sum_over_j_2 += g_20j * (sin_alpha_qj * rek2_220q + cos_alpha_qj * imk2_220q);
+            sum_over_j_3 += g_20j * (cos_alpha_qj * rek2_220q - sin_alpha_qj * imk2_220q);
             if q == j {
                 sum_over_j_1_secular += g_21j * rek2_201q;
                 sum_over_j_2_secular += g_20j * imk2_220q;
