@@ -17,6 +17,10 @@ struct Cache {
     freq: [f64; 145],
     real: [f64; 145],
     imag: [f64; 145],
+    // Spectrum grid interval used at the last interpolation of each (m, p, q) mode: the tidal
+    // frequencies move slowly, so the interval is checked first before falling back to a
+    // binary search over the 1024-point spectrum.
+    hint: [u16; 145],
     valid: bool,
     last_spin_rate: f64,
     last_orbital_frequency: f64,
@@ -30,6 +34,7 @@ impl Cache {
             freq: [0.; 145],
             real: [0.; 145],
             imag: [0.; 145],
+            hint: [0; 145],
             valid: false,
             last_spin_rate: 0.,
             last_orbital_frequency: 0.,
@@ -255,9 +260,11 @@ impl LoveNumber {
                         orbital_frequency,
                     );
 
-                    // TODO Don't update the love numbers cache if the change in wk2 is minimal
-                    let (real_k2, imaginary_k2) =
-                        self.get_love_numbers(central_body, spin_rate, wk2);
+                    let index = Cache::map_3d_to_1d(m, 3, p, 3, q);
+                    let hint = self.caches[self.current].hint[index] as usize;
+                    let (real_k2, imaginary_k2, new_hint) =
+                        self.get_love_numbers(central_body, spin_rate, wk2, hint);
+                    self.caches[self.current].hint[index] = new_hint as u16;
 
                     self.caches[self.current].set_all(m, p, q, wk2, real_k2, imaginary_k2);
                 }
@@ -276,7 +283,14 @@ impl LoveNumber {
         f64!(2 - 2 * p + q) * orbital_frequency - f64!(m) * spin
     }
 
-    fn get_love_numbers(&self, central_body: bool, spin_rate: f64, mut wk2: f64) -> (f64, f64) {
+    /// `hint`: grid interval to try first (see `Cache::hint`); the used interval is returned.
+    fn get_love_numbers(
+        &self,
+        central_body: bool,
+        spin_rate: f64,
+        mut wk2: f64,
+        hint: usize,
+    ) -> (f64, f64, usize) {
         // Only for kaula stellar tide with a fixed spectrum
         // Taking into account of the real time evolution of the stellar spin rate
         // by modifying the tidal frequency, and rescale the love number (below)
@@ -292,7 +306,7 @@ impl LoveNumber {
             wk2 = abs!(wk2);
         }
 
-        let (mut real_k2, mut imaginary_k2) = self.interpolate_love_numbers(wk2);
+        let (mut real_k2, mut imaginary_k2, used_hint) = self.interpolate_love_numbers(wk2, hint);
 
         real_k2 *= -1.;
 
@@ -306,53 +320,47 @@ impl LoveNumber {
             imaginary_k2 *= (spin_rate / spectrum_spin_rate).powi(2);
         }
 
-        (real_k2, imaginary_k2)
+        (real_k2, imaginary_k2, used_hint)
     }
 
     // Find the real part and the imaginary part of the Love number associated with
-    // the excitation frequenccy wk2
-    fn interpolate_love_numbers(&self, wk2: f64) -> (f64, f64) {
-        let im_k2;
-        let re_k2;
-        // Find the index of the closest match to use for the interpolation
-        if wk2 <= self.spectrum_excitation_frequency[0] {
+    // the excitation frequenccy wk2. `hint` is the grid interval i (wk2 in
+    // [freq[i - 1], freq[i])) found at the previous call for the same mode; the interval used
+    // now is returned so that the next call can start from it.
+    fn interpolate_love_numbers(&self, wk2: f64, hint: usize) -> (f64, f64, usize) {
+        let freq = &self.spectrum_excitation_frequency;
+        let last = freq.len() - 1;
+        if wk2 <= freq[0] {
             // If wk2 is less than or equal to the first element, take the first value
-            im_k2 = self.spectrum_imaginary_part[0];
-            re_k2 = self.spectrum_real_part[0];
-        } else if wk2
-            >= self.spectrum_excitation_frequency[self.spectrum_excitation_frequency.len() - 1]
-        {
-            // If wk2 is greater than or equal to the last element, take the last value
-            im_k2 = self.spectrum_imaginary_part[self.spectrum_excitation_frequency.len() - 1];
-            re_k2 = self.spectrum_real_part[self.spectrum_excitation_frequency.len() - 1];
-        } else {
-            // Find the index of the closest match to use for the interpolation
-            match self
-                .spectrum_excitation_frequency
-                .binary_search_by(|val| val.total_cmp(&wk2))
-            {
-                Ok(i) => {
-                    // Exact match found: love_number[i] == wk2
-                    assert!(i < self.spectrum_real_part.len());
-                    re_k2 = self.spectrum_real_part[i];
-                    assert!(i < self.spectrum_imaginary_part.len());
-                    im_k2 = self.spectrum_imaginary_part[i];
-                }
-                Err(i) => {
-                    // wk2 is between love_number[i - 1] and love_number[i]
-                    assert!(i < self.spectrum_real_part.len());
-                    assert!(i < self.spectrum_imaginary_part.len());
-                    let prev_freq = self.spectrum_excitation_frequency[i - 1];
-                    let next_freq = self.spectrum_excitation_frequency[i];
-                    let delta = (wk2 - prev_freq) / (next_freq - prev_freq);
-                    im_k2 = (1.0 - delta) * self.spectrum_imaginary_part[i - 1]
-                        + delta * self.spectrum_imaginary_part[i];
-                    re_k2 = (1.0 - delta) * self.spectrum_real_part[i - 1]
-                        + delta * self.spectrum_real_part[i];
-                }
-            }
+            return (self.spectrum_real_part[0], self.spectrum_imaginary_part[0], 1);
         }
-
-        (re_k2, im_k2)
+        if wk2 >= freq[last] {
+            // If wk2 is greater than or equal to the last element, take the last value
+            return (self.spectrum_real_part[last], self.spectrum_imaginary_part[last], last);
+        }
+        // Interval i such that freq[i - 1] <= wk2 < freq[i]: try the hinted interval and its
+        // neighbours first, then fall back to a binary search (partition point).
+        let in_interval = |i: usize| i >= 1 && i <= last && freq[i - 1] <= wk2 && wk2 < freq[i];
+        let i = if in_interval(hint) {
+            hint
+        } else if in_interval(hint + 1) {
+            hint + 1
+        } else if hint >= 1 && in_interval(hint - 1) {
+            hint - 1
+        } else {
+            freq.partition_point(|&val| val <= wk2)
+        };
+        if freq[i - 1] == wk2 {
+            // Exact match on a grid point: take the tabulated value
+            return (self.spectrum_real_part[i - 1], self.spectrum_imaginary_part[i - 1], i);
+        }
+        let prev_freq = freq[i - 1];
+        let next_freq = freq[i];
+        let delta = (wk2 - prev_freq) / (next_freq - prev_freq);
+        let im_k2 = (1.0 - delta) * self.spectrum_imaginary_part[i - 1]
+            + delta * self.spectrum_imaginary_part[i];
+        let re_k2 =
+            (1.0 - delta) * self.spectrum_real_part[i - 1] + delta * self.spectrum_real_part[i];
+        (re_k2, im_k2, i)
     }
 }
