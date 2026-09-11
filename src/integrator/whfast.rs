@@ -1,6 +1,5 @@
 use super::Integrator;
 use super::output::{write_historic_snapshot, write_recovery_snapshot};
-use crate::Particle;
 use crate::constants::{
     DBL_EPSILON_2, G, IMPLICIT_MIDPOINT_MAX_ITER, IMPLICIT_MIDPOINT_MIN_ITER, MAX_PARTICLES, PI,
     WHFAST_NMAX_NEWT, WHFAST_NMAX_QUART,
@@ -453,13 +452,16 @@ impl WHFast {
             }
         };
         // Optimisation: don't clone the entire particle when only
-        // two fields are used (inertial velocity and angular momentum)
-        let particles_orig: Vec<ParticleView> =
-            self.universe.particles.iter().map(Particle::view).collect();
-        let mut particles_final = particles_orig.clone();
+        // two fields are used (inertial velocity and angular momentum);
+        // fixed-size arrays of these views avoid a heap allocation per iteration.
+        let mut particles_orig = [ParticleView::default(); MAX_PARTICLES];
+        for (view, particle) in particles_orig.iter_mut().zip(self.universe.particles.iter()) {
+            *view = particle.view();
+        }
+        let mut particles_final = particles_orig;
         let mut converged = false;
         for i in 0..IMPLICIT_MIDPOINT_MAX_ITER {
-            let particles_prev = particles_final.clone();
+            let particles_prev = particles_final;
             // To calculate non-gravity/additional accelerations:
             // - Positions and velocities are needed in heliocentric
             // - But additional accelerations are computed in inertial (i.e., barycentric)

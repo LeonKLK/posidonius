@@ -134,7 +134,7 @@ impl Particle {
 }
 
 // Instead of cloning the full particle, only clone the used fields
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 pub struct ParticleView {
     pub angular_momentum: Axes,
     pub inertial_velocity: Axes,
