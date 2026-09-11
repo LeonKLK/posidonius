@@ -6,7 +6,7 @@ from posidonius.constants import *
 class EvolutionType(object):
     def __init__(self, variant, mass=None, dissipation_of_dynamical_tides=False):
         self._data = {}
-        if variant in ("BolmontMathis2016", "Baraffe2015", "Leconte2011", "Baraffe1998", "GalletBolmont2017"):
+        if variant in ("BolmontMathis2016", "Baraffe2015", "Leconte2011", "Baraffe1998", "GalletBolmont2017", "Starevol"):
             self._data[variant] = float(mass)
         elif variant in ("LeconteChabrier2013", ):
             self._data[variant] = bool(dissipation_of_dynamical_tides)
@@ -21,6 +21,8 @@ class EvolutionType(object):
         if variant == "BolmontMathis2016":
             print("[WARNING {} UTC] Bodies with BolmontMathis2016 evolution will ignore initial radius and dissipation factor.".format(datetime.datetime.now(datetime.UTC).strftime("%Y.%m.%d %H:%M:%S")))
             print("[WARNING {} UTC] BolmontMathis2016 prescription theoretically only works for circular orbits and non inclined orbits, use carefully.".format(datetime.datetime.now(datetime.UTC).strftime("%Y.%m.%d %H:%M:%S")))
+        elif variant == "Starevol":
+            print("[WARNING {} UTC] Bodies with Starevol evolution will ignore initial radius and radius of gyration.".format(datetime.datetime.now(datetime.UTC).strftime("%Y.%m.%d %H:%M:%S")))
         elif variant == "Baraffe2015":
             print("[WARNING {} UTC] Bodies with Baraffe2015 evolution will ignore initial radius and radius of gyration.".format(datetime.datetime.now(datetime.UTC).strftime("%Y.%m.%d %H:%M:%S")))
         elif variant == "Leconte2011":
@@ -363,6 +365,36 @@ class GalletBolmont2017(EvolutionType):
         evolver['time'] = time.tolist()
         evolver['inverse_tidal_q_factor'] = inverse_tidal_q_factor.tolist()
         evolver['radius_of_gyration_2'] = []
+        return evolver
+
+
+class Starevol(EvolutionType):
+    """
+    Starevol track converted from Spiroid (see spi_pos_comparison/make_starevol_profile.py):
+    input/Starevol/M_10.dat with columns age[yr] radius[Rsun] radius_of_gyration_2 (total) ...
+    Only a 1 Msun track is available; the mass is accepted within 0.95..1.05 Msun.
+    """
+    def __init__(self, mass):
+        super(Starevol, self).__init__("Starevol", mass=mass)
+
+    def get_evolver(self, initial_time):
+        mass = self._data[self.__class__.__name__]
+        if not (0.95 <= mass <= 1.05):
+            raise Exception("The evolution type Starevol only provides a 1 Msun track (got {} Msun)!".format(mass))
+        filename = "input/Starevol/M_10.dat"
+        data = np.loadtxt(BASE_DIR+filename)
+        time = data[:,0] * 365.25 - initial_time
+        radius = data[:,1] * R_SUN
+        radius_of_gyration_2 = data[:,2]
+
+        evolver = {}
+        evolver['left_index'] = 0
+        evolver['evolution'] = self.get()
+        evolver['love_number'] = []
+        evolver['radius'] = radius.tolist()
+        evolver['time'] = time.tolist()
+        evolver['inverse_tidal_q_factor'] = []
+        evolver['radius_of_gyration_2'] = radius_of_gyration_2.tolist()
         return evolver
 
 

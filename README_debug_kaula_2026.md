@@ -104,6 +104,17 @@ Keep that file in `input/love_numbers/` on every machine that runs the tests.
 - `central_body` only selects: love-number parity, the slot where the orthogonal component is stored
   on the planet, the sign of the heliocentric distance in the 2D prefactors, the sign of r in the torque.
 
+## Shared stellar profile with Spiroid: `EvolutionType::Starevol`
+`scripts/make_starevol_profile.py` converts Spiroid's `examples/data/star/evolution/savgol_10.csv` into
+`input/Starevol/M_10.dat` (age[yr], radius[Rsun], rg2 = (I_rad + I_conv)/(M R^2), I_conv/(M R^2), mass). Rust
+`EvolutionType::Starevol(mass)` and python `posidonius.Starevol(mass)` read it (1 Msun only, mass accepted in
+0.95..1.05 so the star can be given Spiroid's SOLAR_MASS in kg). `input/` is gitignored: regenerate the file locally.
+The pip-installed package must be reinstalled (`pip install .`) for `cases/*.py` to see new python classes.
+Result (comparison case, e = 1e-6, 100 d): with the same profile Posidonius and Spiroid give da/dt = -5.7477e-7 and
+-5.7478e-7 m/s (ratio 1.00002), both equal to the analytic rate. With GalletBolmont2017 the ratio was 0.832 = (R ratio)^5.
+The stellar spin still differs: Spiroid applies the torque to the convective envelope (two-zone star) and has a
+different wind; Posidonius spins the whole star with rg2_total. Not a tide issue.
+
 ## How to run the reference tests
 ```
 RUST_MIN_STACK=268435456 cargo test --release --test test_tides_kaula -- --test-threads=1

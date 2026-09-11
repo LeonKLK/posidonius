@@ -11,6 +11,7 @@ pub enum EvolutionType {
     Baraffe2015(f64),       // NEW
     Leconte2011(f64),       // BrownDwarf
     Baraffe1998(f64),       // M-Dwarf (mass = 0.10) or SolarLike ConstantDissipation (mass = 1.0)
+    Starevol(f64), // Starevol track converted from Spiroid (radius + total radius of gyration); mass = 1.0 only
     LeconteChabrier2013(bool), // Jupiter with/without dissipation of dynamical tides
     NonEvolving,
 }
@@ -78,6 +79,14 @@ impl Evolver {
                         "The evolution type Gallet_Bolmont_2017 does not support a mass of {mass} Msun!"
                     );
                 }
+            }
+            EvolutionType::Starevol(mass) => {
+                // input/Starevol/M_10.dat: age[yr] radius[Rsun] rg2_total ... (see make_starevol_profile.py)
+                assert!(
+                    (0.95..=1.05).contains(&mass),
+                    "The evolution type Starevol only provides a 1 Msun track (got {mass} Msun)"
+                );
+                String::from("input/Starevol/M_10.dat")
             }
             EvolutionType::Baraffe2015(mass) => {
                 if (0.0099..=0.0101).contains(&mass) {
@@ -254,7 +263,9 @@ impl Evolver {
                         (0., 0.)
                     }
                 }
-                EvolutionType::Baraffe2015(_) | EvolutionType::BolmontMathis2016(_) => {
+                EvolutionType::Baraffe2015(_)
+                | EvolutionType::BolmontMathis2016(_)
+                | EvolutionType::Starevol(_) => {
                     (raw_time * 365.25 - initial_time, raw_radius * R_SUN)
                 }
                 EvolutionType::GalletBolmont2017(_) => (
@@ -271,6 +282,7 @@ impl Evolver {
                 EvolutionType::LeconteChabrier2013(_) | EvolutionType::Baraffe2015(_) => {
                     row[3].parse::<f64>().unwrap()
                 }
+                EvolutionType::Starevol(_) => row[2].parse::<f64>().unwrap(),
                 _ => 0.,
             };
             let current_love_number = match evolution {
@@ -295,7 +307,7 @@ impl Evolver {
                     radius.push(current_radius);
                     inverse_tidal_q_factor.push(current_inverse_tidal_q_factor);
                 }
-                EvolutionType::Baraffe2015(_) => {
+                EvolutionType::Baraffe2015(_) | EvolutionType::Starevol(_) => {
                     time.push(current_time);
                     radius.push(current_radius);
                     radius_of_gyration_2.push(current_radius_of_gyration_2);
@@ -456,7 +468,8 @@ impl Evolver {
         match self.evolution {
             EvolutionType::Baraffe2015(_)
             | EvolutionType::Leconte2011(_)
-            | EvolutionType::LeconteChabrier2013(_) => {
+            | EvolutionType::LeconteChabrier2013(_)
+            | EvolutionType::Starevol(_) => {
                 let (new_radius_of_gyration_2, left_index) = linear_interpolation(
                     current_time,
                     &self.time[self.idx()..],

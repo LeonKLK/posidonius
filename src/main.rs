@@ -143,7 +143,8 @@ fn main() {
     let mut boxed_universe_integrator: Box<dyn posidonius::Integrator> =
         match posidonius::output::restore_snapshot(first_universe_integrator_snapshot_path) {
             Ok(restored_case) => restored_case,
-            Err(_) => {
+            Err(error) => {
+                eprintln!("[ERROR] {error:?}");
                 if resume {
                     panic!(
                         "[PANIC {} UTC] It was not possible to resume the simulation",

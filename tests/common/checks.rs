@@ -122,6 +122,15 @@ pub fn evolution_warnings(evolution: EvolutionType) {
                 )
                 .unwrap()
         ),
+        EvolutionType::Starevol(_) => println!(
+            "[WARNING {} UTC] Bodies with Starevol evolution will ignore initial radius and radius of gyration.",
+            OffsetDateTime::now_utc()
+                .format(
+                    &format_description::parse("[year].[month].[day] [hour]:[minute]:[second]")
+                        .unwrap()
+                )
+                .unwrap()
+        ),
         EvolutionType::Leconte2011(_) => println!(
             "[WARNING {} UTC] Bodies with Leconte2011 evolution will ignore initial radius and radius of gyration.",
             OffsetDateTime::now_utc()
