@@ -5,6 +5,17 @@ use std::time::{Duration, Instant};
 use time::{OffsetDateTime, format_description};
 
 fn main() {
+    // The universe (up to MAX_PARTICLES particles, each carrying its love-number spectrum and
+    // caches) is passed around by value; run on a thread with a large stack so that start-up
+    // (deserialization, snapshot restore) cannot overflow the 8 MB main-thread stack.
+    let child = std::thread::Builder::new()
+        .stack_size(512 * 1024 * 1024)
+        .spawn(run)
+        .expect("failed to spawn the simulation thread");
+    child.join().expect("the simulation thread panicked");
+}
+
+fn run() {
     let timer = Instant::now();
 
     let matches = Command::new("Posidonius")

@@ -2,13 +2,50 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 
 use super::select_eccentricty_order_q;
+use crate::constants::MAX_PARTICLES;
+
+// Relative change of the spin rate or of the orbital frequency below which the cached love
+// numbers are not recomputed (the tidal frequencies moved by less than this fraction; the
+// spectrum is interpolated on a grid ~1e-6 rad/s wide, so the k2 values do not change).
+const LOVE_NUMBER_REFRESH_TOLERANCE: f64 = 1e-8;
 
 // Tidal frequency, real and imaginary love numbers calculated each timestep.
+// One cache per perturbing body (the star's spectrum is shared by all its planets, which have
+// different orbital frequencies); `valid` and the `last_*` values gate the refresh.
 #[derive(Copy, PartialEq, Debug, Clone)]
 struct Cache {
     freq: [f64; 145],
     real: [f64; 145],
     imag: [f64; 145],
+    valid: bool,
+    last_spin_rate: f64,
+    last_orbital_frequency: f64,
+    last_q_range: (usize, usize),
+    last_full: bool,
+}
+
+impl Cache {
+    const fn empty() -> Self {
+        Cache {
+            freq: [0.; 145],
+            real: [0.; 145],
+            imag: [0.; 145],
+            valid: false,
+            last_spin_rate: 0.,
+            last_orbital_frequency: 0.,
+            last_q_range: (0, 0),
+            last_full: false,
+        }
+    }
+
+    fn up_to_date(&self, spin_rate: f64, orbital_frequency: f64, q_range: (usize, usize), full: bool) -> bool {
+        self.valid
+            && self.last_q_range == q_range
+            && (self.last_full || !full)
+            && (spin_rate - self.last_spin_rate).abs() <= LOVE_NUMBER_REFRESH_TOLERANCE * spin_rate.abs()
+            && (orbital_frequency - self.last_orbital_frequency).abs()
+                <= LOVE_NUMBER_REFRESH_TOLERANCE * orbital_frequency.abs()
+    }
 }
 
 impl Cache {
@@ -60,9 +97,12 @@ pub struct LoveNumber {
     // which was an input value of stellar spin rate from the computation of the spectrum.
     stellar_spectrum_spin_rate: Option<f64>, // Specified the initial spin rate of the star, or `None` if planetary tide.
 
-    // Cache of the tidal frequency
+    // Caches of the tidal frequencies and love numbers, one per perturbing body (indexed by
+    // the perturber's particle id); `current` selects the one read by `real`/`imaginary`.
     #[serde(skip)]
-    cache: Cache,
+    caches: [Cache; MAX_PARTICLES],
+    #[serde(skip)]
+    current: usize,
 }
 
 impl Default for LoveNumber {
@@ -72,11 +112,8 @@ impl Default for LoveNumber {
             spectrum_real_part: [0.; 1024],
             spectrum_imaginary_part: [0.; 1024],
             stellar_spectrum_spin_rate: None,
-            cache: Cache {
-                freq: [0.; 145],
-                real: [0.; 145],
-                imag: [0.; 145],
-            },
+            caches: [Cache::empty(); MAX_PARTICLES],
+            current: 0,
         }
     }
 }
@@ -99,21 +136,28 @@ impl LoveNumber {
 
     /// Fetches the real love number from the cache for index of tuple (m, p, q).
     pub(crate) fn real(&self, m: usize, p: usize, q: usize) -> f64 {
-        self.cache.real(m, p, q)
+        self.caches[self.current].real(m, p, q)
     }
 
     /// Fetches the imaginary love number from the cache for index of tuple (m, p, q).
     pub(crate) fn imaginary(&self, m: usize, p: usize, q: usize) -> f64 {
-        self.cache.imaginary(m, p, q)
+        self.caches[self.current].imaginary(m, p, q)
     }
 
+    /// `perturber_id`: particle id of the perturbing body, selecting the cache slot.
     pub fn refresh_cache_full(
         &mut self,
         central_body: bool,
         spin_rate: f64,
         orbital_frequency: f64,
         eccentricity: f64,
+        perturber_id: usize,
     ) {
+        self.current = perturber_id;
+        let q_range = select_eccentricty_order_q(eccentricity);
+        if self.caches[self.current].up_to_date(spin_rate, orbital_frequency, q_range, true) {
+            return;
+        }
         // refresh m = 0..3, p = 0..3, q bounded by eccentricty order
         let (m_min, m_max) = (0, 3);
         let (p_min, p_max) = (0, 3);
@@ -127,14 +171,29 @@ impl LoveNumber {
             p_min,
             p_max,
         );
+        self.caches[self.current] = Cache {
+            valid: true,
+            last_spin_rate: spin_rate,
+            last_orbital_frequency: orbital_frequency,
+            last_q_range: q_range,
+            last_full: true,
+            ..self.caches[self.current]
+        };
     }
+    /// `perturber_id`: particle id of the perturbing body, selecting the cache slot.
     pub fn refresh_cache_partial(
         &mut self,
         central_body: bool,
         spin_rate: f64,
         orbital_frequency: f64,
         eccentricity: f64,
+        perturber_id: usize,
     ) {
+        self.current = perturber_id;
+        let q_range = select_eccentricty_order_q(eccentricity);
+        if self.caches[self.current].up_to_date(spin_rate, orbital_frequency, q_range, false) {
+            return;
+        }
         // refresh m = 0, p = 1, q = bounded by eccentricty order
         let (m_min, m_max) = (0, 1);
         let (p_min, p_max) = (1, 2);
@@ -162,6 +221,14 @@ impl LoveNumber {
             p_min,
             p_max,
         );
+        self.caches[self.current] = Cache {
+            valid: true,
+            last_spin_rate: spin_rate,
+            last_orbital_frequency: orbital_frequency,
+            last_q_range: q_range,
+            last_full: false,
+            ..self.caches[self.current]
+        };
     }
     /// Recomputes all the love number values.
     // Called at each time step to cache love numbers for that iteration, to prevent duplicate calculations.
@@ -192,7 +259,7 @@ impl LoveNumber {
                     let (real_k2, imaginary_k2) =
                         self.get_love_numbers(central_body, spin_rate, wk2);
 
-                    self.cache.set_all(m, p, q, wk2, real_k2, imaginary_k2);
+                    self.caches[self.current].set_all(m, p, q, wk2, real_k2, imaginary_k2);
                 }
             }
         }
