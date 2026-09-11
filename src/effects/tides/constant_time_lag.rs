@@ -41,6 +41,16 @@ fn calculate_planet_dependent_scaled_dissipation_factors(
     more_particles: &mut [Particle],
     pair_dependent_scaled_dissipation_factor: &mut HashMap<usize, f64>,
 ) {
+    // The planet-dependent factor scales the HOST's constant-time-lag dissipation. When the
+    // host does not use the constant time lag model its dissipation factor (and hence every
+    // factor computed here) is zero, and the consumers fall back to that same zero when the
+    // factor is absent: skip the keplerian elements and hash-map work in that case.
+    if !matches!(
+        tidal_host_particle.tides.effect,
+        TidesEffect::CentralBody(TidalModel::ConstantTimeLag(_))
+    ) {
+        return;
+    }
     match tidal_host_particle.evolution {
         EvolutionType::BolmontMathis2016(_)
         | EvolutionType::GalletBolmont2017(_)
