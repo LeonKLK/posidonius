@@ -6,7 +6,6 @@ use super::{
 use crate::Particle;
 use crate::tools::KeplerianElements;
 
-use itertools::izip;
 
 /// 2D (coplanar) kaula force components on `tidal_deformed_body` due to `tidal_perturber`.
 /// Roles: see `kaula.rs`. The orbit is always the planet's.
@@ -140,64 +139,52 @@ fn calculate_2d_components(
     let mut radial_sum_over_q = 0.;
     let mut radial_sum_over_q_secular = 0.;
     let (q_min, q_max) = select_eccentricty_order_q(eccentricity);
-
-    // With p = k = 0 the phase alpha_pqkj reduces to (j - q) * mean_anomaly (the argument of
-    // perihelion term vanishes), so the cos/sin of the n_q^2 (q, j) pairs only take 2 n_q - 1
-    // distinct values: tabulate them once per call. The angle is formed exactly as in
-    // `alpha_pqkj` so the results are bit-identical.
     let n_q = q_max - q_min;
-    let mut cos_alpha = [0.0_f64; 29];
-    let mut sin_alpha = [0.0_f64; 29];
-    for (index, entry) in cos_alpha.iter_mut().zip(sin_alpha.iter_mut()).take(2 * n_q - 1).enumerate() {
-        let alpha = alpha_pqkj(0, n_q - 1, 0, index, mean_anomaly, argument_perihelion);
-        *entry.0 = cos!(alpha);
-        *entry.1 = sin!(alpha);
+
+    // With p = k = 0 the phase alpha_pqkj is (j - q) * mean_anomaly (the argument of perihelion
+    // term vanishes; kept in the call so the angle is formed as in `alpha_pqkj`). The double sum
+    // over (q, j) then separates with the angle-addition formulas:
+    //   sum_j g_j cos((j - q) M) = cos(q M) sum_j g_j cos(j M) + sin(q M) sum_j g_j sin(j M)
+    //   sum_j g_j sin((j - q) M) = cos(q M) sum_j g_j sin(j M) - sin(q M) sum_j g_j cos(j M)
+    // so the four q-independent sums are formed once and each q costs O(1) instead of O(n_q).
+    let g_20 = &kaula.polynomials.eccentricity_function_g_2pq[0][q_min..q_max];
+    let g_21 = &kaula.polynomials.eccentricity_function_g_2pq[1][q_min..q_max];
+    let mut cos_t = [0.0_f64; 15];
+    let mut sin_t = [0.0_f64; 15];
+    let (mut a_20, mut b_20, mut a_21, mut b_21) = (0.0_f64, 0.0_f64, 0.0_f64, 0.0_f64);
+    for t in 0..n_q {
+        let alpha = alpha_pqkj(0, 0, 0, t, mean_anomaly, argument_perihelion); // t * M
+        cos_t[t] = cos!(alpha);
+        sin_t[t] = sin!(alpha);
+        a_20 += g_20[t] * sin_t[t];
+        b_20 += g_20[t] * cos_t[t];
+        a_21 += g_21[t] * sin_t[t];
+        b_21 += g_21[t] * cos_t[t];
     }
 
     // For q in the range defined by the eccentricity
-    for (q, (g_20q, g_21q)) in izip!(
-        kaula.polynomials.eccentricity_function_g_2pq[0],
-        kaula.polynomials.eccentricity_function_g_2pq[1],
-    )
-    .take(q_max)
-    .skip(q_min)
-    .enumerate()
-    {
+    for q in 0..n_q {
+        let (g_20q, g_21q) = (g_20[q], g_21[q]);
         let tmp_q = q_min + q;
         let rek2_201q = kaula.love_numbers.real(0, 1, tmp_q);
         let imk2_201q = kaula.love_numbers.imaginary(0, 1, tmp_q);
         let rek2_220q = kaula.love_numbers.real(2, 0, tmp_q);
         let imk2_220q = kaula.love_numbers.imaginary(2, 0, tmp_q);
 
-        let mut sum_over_j_1 = 0.;
-        let mut sum_over_j_2 = 0.;
-        let mut sum_over_j_3 = 0.;
+        let (cos_q, sin_q) = (cos_t[q], sin_t[q]);
+        // sum_j g_2pj cos((j - q) M) and sum_j g_2pj sin((j - q) M) for p = 0 and p = 1
+        let c_20 = cos_q * b_20 + sin_q * a_20;
+        let s_20 = cos_q * a_20 - sin_q * b_20;
+        let c_21 = cos_q * b_21 + sin_q * a_21;
+        let s_21 = cos_q * a_21 - sin_q * b_21;
 
-        let mut sum_over_j_1_secular = 0.;
-        let mut sum_over_j_2_secular = 0.;
-        let mut sum_over_j_3_secular = 0.;
-
-        for (j, (g_20j, g_21j)) in izip!(
-            kaula.polynomials.eccentricity_function_g_2pq[0],
-            kaula.polynomials.eccentricity_function_g_2pq[1]
-        )
-        .take(q_max)
-        .skip(q_min)
-        .enumerate()
-        {
-            // alpha_qj = (j - q) * mean_anomaly, tabulated above at offset j - q + n_q - 1
-            let cos_alpha_qj = cos_alpha[j + n_q - 1 - q];
-            let sin_alpha_qj = sin_alpha[j + n_q - 1 - q];
-
-            sum_over_j_1 += g_21j * (cos_alpha_qj * rek2_201q - sin_alpha_qj * imk2_201q);
-            sum_over_j_2 += g_20j * (sin_alpha_qj * rek2_220q + cos_alpha_qj * imk2_220q);
-            sum_over_j_3 += g_20j * (cos_alpha_qj * rek2_220q - sin_alpha_qj * imk2_220q);
-            if q == j {
-                sum_over_j_1_secular += g_21j * rek2_201q;
-                sum_over_j_2_secular += g_20j * imk2_220q;
-                sum_over_j_3_secular += g_20j * rek2_220q;
-            }
-        }
+        let sum_over_j_1 = c_21 * rek2_201q - s_21 * imk2_201q;
+        let sum_over_j_2 = s_20 * rek2_220q + c_20 * imk2_220q;
+        let sum_over_j_3 = c_20 * rek2_220q - s_20 * imk2_220q;
+        // secular part: only the j = q terms (alpha = 0)
+        let sum_over_j_1_secular = g_21q * rek2_201q;
+        let sum_over_j_2_secular = g_20q * imk2_220q;
+        let sum_over_j_3_secular = g_20q * rek2_220q;
 
         orthogonal_sum_over_q += g_20q * (3. / 2.) * sum_over_j_2;
         orthogonal_sum_over_q_secular += g_20q * (3. / 2.) * sum_over_j_2_secular;
