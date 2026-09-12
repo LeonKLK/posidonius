@@ -153,7 +153,12 @@ Reference measurements on speedup_kaula_2026 (2-planet Kwok+2026 case, 500 yr, c
 | H10 | separable O(n_q) evaluation of the 2D force sums (supersedes H8, tabulated phases) | - | rounding level |
 | H11 | heliocentric positions once per kick | - | none |
 | rejected | H12 powf -> sqrt: no gain | - | - |
-Not yet examined: 1-planet and 3-planet cases; a stored-reference test with a stellar kaula tide and >= 2 planets (guards F9).
+Study done (2026-09-12) on this branch, one commit per item, on the Kwok+2026 1-, 2- and 3-planet cases
+(~/Documents/posidonius speed up test/study/results.md, expected/expected_<case>.json = baseline evolutions):
+cumulative 4.08x (1p, 500 yr), 5.41x (2p, 500 yr), 4.00x (3p, 2000 yr with disk); largest standalone items H2
+(1.8-2.1x), H10 (1.2-1.5x), H3 (1.2-1.4x), H1 (1.2-1.4x); H6, H7, H11 neutral alone but free (bit-identical).
+Every step 88/88 tests and evolution within the 1e-12-perturbation chaos floor.
+Still missing: a stored-reference test with a stellar kaula tide and >= 2 planets (guards F9).
 
 ## How to run the reference tests
 ```
