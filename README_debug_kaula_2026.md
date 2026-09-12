@@ -85,20 +85,25 @@ Keep that file in `input/love_numbers/` on every machine that runs the tests.
 (`LoveNumber` holds 3 x 1024 f64 by value, `Particle` copies are large). Run with
 `RUST_MIN_STACK=268435456 cargo test --release --test test_tides_kaula -- --test-threads=1`.
 
-### F8. [ ] Planetary Kaula kick does not converge in the WHFast implicit-midpoint loop
+### F8. [ ] (WHFast, parked) Planetary Kaula kick does not converge in the implicit-midpoint loop
 Profiling (see ~/Documents/spi_pos_comparison/profiling/PERFORMANCE_REPORT.md): with a planetary Kaula tide (e = 0.05,
 Leconte k2) 38 % of the velocity kicks run to IMPLICIT_MIDPOINT_MAX_ITER = 10 without meeting the machine-epsilon test;
 the residual is a period-2 limit cycle (planet velocity alternating by 2e-12 relative), i.e. some term of the Kaula
 acceleration is discontinuous in the velocity at the ~3e-5 relative level. Costs ~2x runtime and leaves a 2e-12 velocity
 ambiguity. Stellar Kaula and CTL cases converge in < 3 iterations (the enforced minimum). Candidates: branch in
 tools::calculate_keplerian_orbital_elements, q-range tier selection, love-number cache refresh.
+Not a kaula-physics issue for the stellar-kaula + CTL-planet runs (no planetary kaula there); treated as a WHFast
+problem to diagnose later: log the individual force terms across the two iterates of one capped kick and see which
+term jumps (instrumentation as in the profiling session). Note the H2 optimisation (force once per kick) hides the
+symptom without fixing the discontinuity.
 
 ### F9. [x] Stellar kaula torque with several planets used the LAST planet's force for every planet
 `kaula::calculate_tidal_force` stored the secular force of the stellar tide in the STAR's single
 `KaulaParameters::tidal_force`; `calculate_dangular_momentum_dt_due_to_tides` then computed r_i x F for every planet
 i with that one F (the last planet's). Demonstration (cases/a03_k2_flatline_signed.py --second_planet_au 1.0): adding a
 distant Earth-mass planet without tides made the stellar tidal spin-up drop from 3.70e-24 to 0 rad/s^2.
-Fixed on branch speedup_kaula_2026: the force and its secular part are stored per planet
+Fixed on branch speedup_kaula_2026 and cherry-picked alone onto kaula_ctl_baseline_2026 (= b3ae0a8 + this fix,
+the bug-free baseline for the optimisation study): the force and its secular part are stored per planet
 (`TidesParticleInternalParameters::kaula_stellar_tide_force / _secular_force`) and the torque reads them from the
 planet. Single-planet results unchanged (all stored references pass); the Kwok+2026 two-planet case changes its star
 spin by 3e-9 relative over 500 yr.
@@ -132,6 +137,23 @@ Result (comparison case, e = 1e-6, 100 d): with the same profile Posidonius and 
 -5.7478e-7 m/s (ratio 1.00002), both equal to the analytic rate. With GalletBolmont2017 the ratio was 0.832 = (R ratio)^5.
 The stellar spin still differs: Spiroid applies the torque to the convective envelope (two-zone star) and has a
 different wind; Posidonius spins the whole star with rg2_total. Not a tide issue.
+
+## Optimisation study (branch kaula_ctl_baseline_2026 = b3ae0a8 + F9; each item re-applied one at a time)
+Scenario: stellar kaula tide (alpha0.516 spectrum) + planetary CTL tides, 1 to 3 planets, coplanar, WHFast.
+Reference measurements on speedup_kaula_2026 (2-planet Kwok+2026 case, 500 yr, cumulative): 17.5 s -> 3.3 s.
+| item | what | depends on | changes results? |
+|---|---|---|---|
+| H1 | implicit-midpoint MIN_ITER 3 -> 1 (convergence test decides) | - | rounding level (references regenerated) |
+| H2 | kaula force computed once per kick, reused on later iterations | F9 (per-planet force fields) | rounding level |
+| H3 | one love-number cache per perturber; k2 refreshed only when spin or mean motion moved by > tolerance (1e-8 relative; the tolerance itself is a parameter to examine: 1e-10 .. 1e-6, k2 error ~ tol * sigma * dk2/dsigma vs the ~2e-6 rad/s grid) | - | none at 1e-8 (stored references unchanged) |
+| H4 | spectrum interval hint per mode before the binary search | H3 | none (bit-identical) |
+| H6 | skip CTL planet-dependent dissipation factors when the host tide is not CTL | - | none |
+| H7 | kick loop without heap allocations | - | none |
+| H9 | cache bookkeeping updated in place | H3 | none |
+| H10 | separable O(n_q) evaluation of the 2D force sums (supersedes H8, tabulated phases) | - | rounding level |
+| H11 | heliocentric positions once per kick | - | none |
+| rejected | H12 powf -> sqrt: no gain | - | - |
+Not yet examined: 1-planet and 3-planet cases; a stored-reference test with a stellar kaula tide and >= 2 planets (guards F9).
 
 ## How to run the reference tests
 ```
