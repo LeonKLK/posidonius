@@ -64,6 +64,12 @@ pub struct TidesParticleInternalParameters {
     //
     pub denergy_dt: f64, // Only for history output
     pub lag_angle: f64, // Used by EvolutionType::BolmontMathis2016, EvolutionType::GalletBolmont2017 and EvolutionType::LeconteChabrier2013(true)
+    //
+    // Kaula stellar tide, stored on the ORBITING body (one value per planet): the secular part of
+    // the force the tidally deformed star exerts on this planet, used for the torque on the star.
+    // The star's single `KaulaParameters::tidal_force` cannot hold one value per planet.
+    #[serde(default)]
+    pub kaula_stellar_tide_secular_force: Axes,
 }
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq)]
@@ -181,6 +187,7 @@ impl Tides {
                     shape: Axes::new(),
                     denergy_dt: 0., // Only for history output
                     lag_angle: 0.,  // It will be initialized the first time the evolver is called
+                    kaula_stellar_tide_secular_force: Axes::new(),
                 },
                 output: TidesParticleOutputParameters {
                     acceleration: Axes::new(),

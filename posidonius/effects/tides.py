@@ -11,6 +11,7 @@ class Tides(object):
                 "internal": {
                     "denergy_dt": 0.0,
                     "distance": 0.0,
+                    "kaula_stellar_tide_secular_force": Axes(0.0, 0.0, 0.0).get(),
                     "lag_angle": 0.0,
                     "orthogonal_component_of_the_tidal_force_due_to_planetary_tide": 0.0,
                     "orthogonal_component_of_the_tidal_force_due_to_stellar_tide": 0.0,

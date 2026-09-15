@@ -138,7 +138,18 @@ fn calculate_tidal_force_component(
         radial_component_secular,
     );
 
-    particle.tides.get_kaula_mut().tidal_force = secular_projection;
+    if central_body {
+        // Stellar tide: `particle` is the star, whose single KaulaParameters::tidal_force is
+        // shared by all planets and would only keep the last planet's force. Store the secular
+        // force of this star-planet pair on the planet (`tidal_host_particle`) instead.
+        tidal_host_particle
+            .tides
+            .parameters
+            .internal
+            .kaula_stellar_tide_secular_force = secular_projection;
+    } else {
+        particle.tides.get_kaula_mut().tidal_force = secular_projection;
+    }
 
     components
 }
@@ -265,8 +276,13 @@ pub fn calculate_torque_due_to_tides(
             // additive inversion of positions if the host particle is the central body
             position.negate();
         }
-        // If this is the central body, take the kaula tidal force from the tidal host particle
-        tidal_host_particle.tides.get_kaula().tidal_force
+        // If this is the central body, take the secular kaula force of this star-planet pair,
+        // which calculate_tidal_force_component stored on the planet (`particle`)
+        particle
+            .tides
+            .parameters
+            .internal
+            .kaula_stellar_tide_secular_force
     } else {
         // If it is not the central body, take the kaula tidal froce from the other particle
         particle.tides.get_kaula().tidal_force
