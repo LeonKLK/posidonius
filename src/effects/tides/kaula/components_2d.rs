@@ -78,16 +78,24 @@ fn orthogonal_constant(
     central_body: bool,
 ) -> f64 {
     if central_body {
+        // Stellar tide (called from tides.rs with the arguments swapped):
+        //   `tidal_host_particle` is the PLANET (perturber, orbiting body),
+        //   `particle` is the STAR (tidally deformed body).
+        // The prefactor needs the star's radius and the planet's mass; the angle sin(theta)
+        // and the heliocentric distance are those of the planet on its orbit.
         calculate_2d_constant(
-            tidal_host_particle,
-            particle,
+            particle,            // deformed body: star
+            tidal_host_particle, // perturber: planet
+            tidal_host_particle.tides.coordinates.position,
             -tidal_host_particle.heliocentric_distance,
             semi_major_axis,
         )
     } else {
+        // Planetary tide: `particle` is the PLANET (deformed body), `tidal_host_particle` the STAR.
         calculate_2d_constant(
-            particle,
-            tidal_host_particle,
+            particle,            // deformed body: planet
+            tidal_host_particle, // perturber: star
+            particle.tides.coordinates.position,
             particle.heliocentric_distance,
             semi_major_axis,
         )
@@ -101,16 +109,18 @@ fn radial_constant(
     central_body: bool,
 ) -> f64 {
     if central_body {
+        // Stellar tide: `particle` is the STAR (deformed body), `tidal_host_particle` the PLANET.
         -calculate_base_constant(
-            particle,
-            tidal_host_particle,
+            particle,            // deformed body: star
+            tidal_host_particle, // perturber: planet
             -tidal_host_particle.heliocentric_distance,
             semi_major_axis,
         )
     } else {
+        // Planetary tide: `particle` is the PLANET (deformed body), `tidal_host_particle` the STAR.
         -calculate_base_constant(
-            particle,
-            tidal_host_particle,
+            particle,            // deformed body: planet
+            tidal_host_particle, // perturber: star
             particle.heliocentric_distance,
             semi_major_axis,
         )

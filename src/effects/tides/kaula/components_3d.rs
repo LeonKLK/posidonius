@@ -342,13 +342,16 @@ fn calculate_normal_component_of_the_tidal_force_3d(
     let term_m2_s = -(1. / 6.) * sum_over_p_s;
 
     let cste = if central_body {
+        // Stellar tide: `particle` is the STAR (deformed body, radius^5) and
+        // `tidal_host_particle` the PLANET (perturber, mass^2, heliocentric distance).
         calculate_base_constant(
-            tidal_host_particle,
-            particle,
+            particle,            // deformed body: star
+            tidal_host_particle, // perturber: planet
             tidal_host_particle.heliocentric_distance,
             semi_major_axis,
         )
     } else {
+        // Planetary tide: `particle` is the PLANET (deformed body), `tidal_host_particle` the STAR.
         calculate_base_constant(
             particle,
             tidal_host_particle,
@@ -596,8 +599,10 @@ fn calculate_orthogonal_component_of_the_tidal_force_3d(
     let term_m2_s = -5. / (48. * sqrt!(6_f64)) * sum_over_p_s;
 
     let cste_3d = if central_body {
-        calculate_base_constant(tidal_host_particle, particle, 1.0, semi_major_axis)
+        // Stellar tide: `particle` is the STAR (deformed body), `tidal_host_particle` the PLANET.
+        calculate_base_constant(particle, tidal_host_particle, 1.0, semi_major_axis)
     } else {
+        // Planetary tide: `particle` is the PLANET (deformed body), `tidal_host_particle` the STAR.
         calculate_base_constant(particle, tidal_host_particle, 1.0, semi_major_axis)
     };
 
@@ -632,13 +637,16 @@ fn calculate_radial_component_of_the_tidal_force_3d(
     // let eccentricity_function_g_2pq = calculate_eccentricity_function_g_2pq(eccentricity);
     // let inclination_function_f_2mp = calculate_inclination_function_f_2mp(obliquity);
     let cste = if central_body {
+        // Stellar tide: `particle` is the STAR (deformed body, radius^5) and
+        // `tidal_host_particle` the PLANET (perturber, mass^2, heliocentric distance).
         calculate_base_constant(
-            tidal_host_particle,
-            particle,
+            particle,            // deformed body: star
+            tidal_host_particle, // perturber: planet
             tidal_host_particle.heliocentric_distance,
             semi_major_axis,
         )
     } else {
+        // Planetary tide: `particle` is the PLANET (deformed body), `tidal_host_particle` the STAR.
         calculate_base_constant(
             particle,
             tidal_host_particle,
